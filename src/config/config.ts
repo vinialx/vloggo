@@ -3,6 +3,27 @@ import * as path from "path";
 
 import { LoggoConfig, LoggoSMTPConfig } from "../interfaces/interfaces";
 
+/**
+ * Configuration manager for Loggo.
+ * Manages all settings including SMTP, file rotation, and debugging.
+ * 
+ * @example
+ * ```typescript
+ * // Use default config (from .env)
+ * const config = new Config();
+ * 
+ * // Custom config
+ * const customConfig = new Config({
+ *   client: 'MyApp',
+ *   directory: './logs',
+ *   console: false
+ * });
+ * 
+ * // Clone with overrides
+ * const apiConfig = config.clone({ client: 'API' });
+ * ```
+ */
+
 class Config {
   private _debug: boolean;
   private _console: boolean;
@@ -14,6 +35,11 @@ class Config {
   private _notify: boolean;
   private _throttle: number;
   private _smtp: LoggoSMTPConfig | undefined = undefined;
+
+  /**
+   * Creates a new Config instance.
+   * @param options - Optional configuration overrides
+   */
 
   constructor(options?: Partial<LoggoConfig>) {
     this._debug = options?.debug ?? true;
@@ -35,6 +61,11 @@ class Config {
       this.loadSMTPFromEnv();
     }
   }
+
+  /**
+   * Loads SMTP configuration from environment variables.
+   * @private
+   */
 
   private loadSMTPFromEnv(): void {
     const to = process.env.SMTP_TO;
