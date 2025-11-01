@@ -22,7 +22,6 @@ export interface LoggoSMTPConfig {
 export type LogLevel = "INFO" | "WARN" | "ERROR" | "CRITICAL" | "DEBUG";
 
 export interface LogEntry {
-  client: string;
   level: LogLevel;
   timestamp: string;
   code: string;
