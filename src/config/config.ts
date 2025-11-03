@@ -2,7 +2,12 @@ import * as os from "os";
 import * as path from "path";
 import FormatService from "../internal/formatService";
 
-import { LoggoConfig, LoggoSMTPConfig } from "../interfaces/interfaces";
+import {
+  LoggoConfig,
+  LoggoSMTPConfig,
+  LoggoDirectory,
+  LoggoFilecount,
+} from "../interfaces/interfaces";
 
 /**
  * Configuration manager for Loggo.
@@ -12,13 +17,16 @@ import { LoggoConfig, LoggoSMTPConfig } from "../interfaces/interfaces";
  */
 
 class Config {
-  private _debug: boolean;
   private _client!: string;
-  private _notify: boolean;
+  private _json: boolean;
+  private _debug: boolean;
   private _console: boolean;
+
+  private _filecount: LoggoFilecount;
+  private _directory!: LoggoDirectory;
+
+  private _notify: boolean;
   private _throttle: number;
-  private _filecount: number;
-  private _directory!: string;
   private _smtp: LoggoSMTPConfig | undefined = undefined;
 
   private format: FormatService = new FormatService();
@@ -31,38 +39,36 @@ class Config {
    *
    * @example
    * ```typescript
-   * // Use default config (from .env)
-   * const config = new Config();
+   * // Minimal config
+   * const config = new Config({ client: 'MyApp' });
    *
-   * // Custom config
-   * const customConfig = new Config({
+   * // With SMTP
+   * const config = new Config({
    *   client: 'MyApp',
-   *   directory: './logs',
-   *   console: false
+   *   smtp: { host: '...', port: 465, ... }
    * });
-   *
-   * // Clone with overrides
-   * const apiConfig = config.clone({ client: 'API' });
    * ```
    */
 
   constructor(options?: Partial<LoggoConfig>) {
-    this._debug = options?.debug ?? true;
+    this._client = options?.client || process.env.CLIENT_NAME || "Loggo";
+    this._json = options?.json ?? false;
+    this._debug = options?.debug ?? false;
     this._console = options?.console ?? true;
 
-    this._client = options?.client || process.env.CLIENT_NAME || "Loggo";
-    this._filecount = options?.filecount ?? 31;
-    this._directory =
-      options?.directory || path.resolve(os.homedir(), this._client, "logs");
+    this._filecount = options?.filecount ?? { txt: 31, json: 31 };
+    this._directory = options?.directory || {
+      txt: path.resolve(os.homedir(), this._client, "logs"),
+      json: path.resolve(os.homedir(), this._client, "json"),
+    };
 
-    this._notify = options?.notify ?? true;
+    this._notify = options?.notify ?? false;
     this._throttle = options?.throttle ?? 30000;
 
-    if (options?.smtp && this._notify) {
-      this._smtp = options.smtp;
+    if (options?.smtp) {
+      this._smtp = options.smtp as LoggoSMTPConfig;
+      this._notify = true;
     } else {
-      this._smtp = undefined;
-      this._notify = false;
       this.loadSMTPFromEnv();
     }
   }
@@ -152,8 +158,9 @@ class Config {
     if (options.client) {
       this._client = options.client;
     }
-    if (options.directory) {
-      this._directory = options.directory;
+
+    if (options.json !== undefined) {
+      this._json = options.json;
     }
 
     if (options.debug !== undefined) {
@@ -165,7 +172,21 @@ class Config {
     }
 
     if (options.filecount) {
-      this._filecount = options.filecount;
+      if (options.filecount.txt) {
+        this._filecount.txt = options.filecount.txt;
+      }
+      if (options.filecount.json) {
+        this._filecount.json = options.filecount.json;
+      }
+    }
+
+    if (options.directory) {
+      if (options.directory.txt) {
+        this._directory.txt = options.directory.txt;
+      }
+      if (options.directory.json) {
+        this._directory.json = options.directory.json;
+      }
     }
 
     if (options.notify !== undefined) {
@@ -201,14 +222,38 @@ class Config {
   clone(overrides?: Partial<LoggoConfig>): Config {
     return new Config({
       client: overrides?.client ?? this._client,
-      directory: overrides?.directory ?? this._directory,
+      json: overrides?.json ?? this._json,
       debug: overrides?.debug ?? this._debug,
       console: overrides?.console ?? this._console,
+
+      directory: overrides?.directory ?? this._directory,
       filecount: overrides?.filecount ?? this._filecount,
+
       throttle: overrides?.throttle ?? this._throttle,
       notify: overrides?.notify ?? this._notify,
       smtp: overrides?.smtp ?? this._smtp,
     });
+  }
+
+  /**
+   * Gets the client/application name.
+   *
+   * @readonly
+   * @returns {string} Client/application name
+   */
+  get client(): string {
+    return this._client;
+  }
+
+  /**
+   * Gets whether json mode is enabled.
+   *
+   * @readonly
+   * @returns {boolean} True if debug mode is enabled
+   */
+
+  get json(): boolean {
+    return this._json;
   }
 
   /**
@@ -234,13 +279,14 @@ class Config {
   }
 
   /**
-   * Gets the client/application name.
+   * Gets the maximum number of log files to keep.
    *
    * @readonly
-   * @returns {string} Client/application name
+   * @returns {number} Maximum file count before rotation
    */
-  get client(): string {
-    return this._client;
+
+  get filecount(): LoggoFilecount {
+    return this._filecount;
   }
 
   /**
@@ -249,18 +295,9 @@ class Config {
    * @readonly
    * @returns {string} Absolute path to log directory
    */
-  get directory(): string {
-    return this._directory;
-  }
 
-  /**
-   * Gets the maximum number of log files to keep.
-   *
-   * @readonly
-   * @returns {number} Maximum file count before rotation
-   */
-  get filecount(): number {
-    return this._filecount;
+  get directory(): LoggoDirectory {
+    return this._directory;
   }
 
   /**
@@ -269,6 +306,7 @@ class Config {
    * @readonly
    * @returns {boolean} True if email notifications are enabled
    */
+
   get notify(): boolean {
     return this._notify;
   }
@@ -279,6 +317,7 @@ class Config {
    * @readonly
    * @returns {LoggoSMTPConfig | undefined} SMTP config object or undefined if not configured
    */
+
   get smtp(): LoggoSMTPConfig | undefined {
     return this._smtp;
   }
@@ -289,10 +328,25 @@ class Config {
    * @readonly
    * @returns {number} Throttle time in milliseconds
    */
+
   get throttle(): number {
     return this._throttle;
   }
 }
 
-export const defaultConfig = new Config();
+export const defaultConfig: LoggoConfig = {
+  client: "Loggo",
+  json: false,
+  debug: false,
+  console: true,
+  filecount: { txt: 31, json: 31 },
+  directory: {
+    txt: path.resolve(os.homedir(), "Loggo", "logs"),
+    json: path.resolve(os.homedir(), "Loggo", "json"),
+  },
+  throttle: 30000,
+  notify: false, // Importante: false por padrão
+  smtp: undefined,
+};
+
 export default Config;
