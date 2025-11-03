@@ -266,10 +266,9 @@ MIT
 
 ## Support
 
-For issues and feature requests, visit: https://github.com/yourusername/loggo/issues
+For issues and feature requests, visit: https://github.com/vinialx/loggo/issues
 
 
 ## Author
 
-Vinicius Aloise Silva
 Email: vini.aloise.silva@gmail.com
