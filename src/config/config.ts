@@ -8,21 +8,7 @@ import { LoggoConfig, LoggoSMTPConfig } from "../interfaces/interfaces";
  * Configuration manager for Loggo.
  * Manages all settings including SMTP, file rotation and debugging.
  *
- * @example
- * ```typescript
- * // Use default config (from .env)
- * const config = new Config();
- *
- * // Custom config
- * const customConfig = new Config({
- *   client: 'MyApp',
- *   directory: './logs',
- *   console: false
- * });
- *
- * // Clone with overrides
- * const apiConfig = config.clone({ client: 'API' });
- * ```
+ * @class Config
  */
 
 class Config {
@@ -39,7 +25,25 @@ class Config {
 
   /**
    * Creates a new Config instance.
-   * @param options - Optional configuration overrides
+   * Loads configuration from options or environment variables.
+   *
+   * @param {Partial<LoggoConfig>} [options] - Optional configuration overrides
+   *
+   * @example
+   * ```typescript
+   * // Use default config (from .env)
+   * const config = new Config();
+   *
+   * // Custom config
+   * const customConfig = new Config({
+   *   client: 'MyApp',
+   *   directory: './logs',
+   *   console: false
+   * });
+   *
+   * // Clone with overrides
+   * const apiConfig = config.clone({ client: 'API' });
+   * ```
    */
 
   constructor(options?: Partial<LoggoConfig>) {
@@ -65,7 +69,19 @@ class Config {
 
   /**
    * Loads SMTP configuration from environment variables.
+   * Validates port number and sets secure flag based on port 465.
+   * Disables notifications if any required environment variable is missing or invalid.
+   *
+   * Required environment variables:
+   * - SMTP_TO: Recipient email address
+   * - SMTP_FROM: Sender email address
+   * - SMTP_HOST: SMTP server hostname
+   * - SMTP_PORT: SMTP server port
+   * - SMTP_USERNAME: SMTP authentication username
+   * - SMTP_PASSWORD: SMTP authentication password
+   *
    * @private
+   * @returns {void}
    */
 
   private loadSMTPFromEnv(): void {
@@ -78,7 +94,7 @@ class Config {
 
     if (!to || !from || !host || !portStr || !username || !password) {
       console.warn(
-        `[Loggo] > [${this.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
+        `[Loggo] > [${this.client}] [${this.format.date()}] [WARN] : notification service disabled > missing configuration`
       );
       this._notify = false;
       return;
@@ -107,6 +123,19 @@ class Config {
 
     this._notify = true;
   }
+
+  /**
+   * Updates configuration properties.
+   * Only updates properties that are provided in the options parameter.
+   *
+   * @param {Partial<Config>} options - Configuration properties to update
+   * @returns {void}
+   *
+   * @example
+   * ```typescript
+   * config.update({ debug: false, throttle: 60000 });
+   * ```
+   */
 
   update(options: Partial<Config>): void {
     if (options.client) {
@@ -144,8 +173,10 @@ class Config {
   /**
    * Creates a clone of this config with optional overrides.
    * The original config is not modified.
-   * @param overrides - Properties to override in the cloned config
-   * @returns New Config instance with overrides applied
+   *
+   * @param {Partial<LoggoConfig>} [overrides] - Properties to override in the cloned config
+   * @returns {Config} New Config instance with overrides applied
+   *
    * @example
    * ```typescript
    * const baseConfig = new Config();
@@ -168,20 +199,31 @@ class Config {
 
   /**
    * Gets whether debug mode is enabled.
+   *
+   * @readonly
+   * @returns {boolean} True if debug mode is enabled
    */
+
   get debug(): boolean {
     return this._debug;
   }
 
   /**
    * Gets whether console output is enabled.
+   *
+   * @readonly
+   * @returns {boolean} True if console output is enabled
    */
+
   get console(): boolean {
     return this._console;
   }
 
   /**
    * Gets the client/application name.
+   *
+   * @readonly
+   * @returns {string} Client/application name
    */
   get client(): string {
     return this._client;
@@ -189,6 +231,9 @@ class Config {
 
   /**
    * Gets the log directory path.
+   *
+   * @readonly
+   * @returns {string} Absolute path to log directory
    */
   get directory(): string {
     return this._directory;
@@ -196,6 +241,9 @@ class Config {
 
   /**
    * Gets the maximum number of log files to keep.
+   *
+   * @readonly
+   * @returns {number} Maximum file count before rotation
    */
   get filecount(): number {
     return this._filecount;
@@ -203,13 +251,19 @@ class Config {
 
   /**
    * Gets whether email notifications are enabled.
+   *
+   * @readonly
+   * @returns {boolean} True if email notifications are enabled
    */
   get notify(): boolean {
     return this._notify;
   }
 
   /**
-   * Gets the SMTP config.
+   * Gets the SMTP configuration.
+   *
+   * @readonly
+   * @returns {LoggoSMTPConfig | undefined} SMTP config object or undefined if not configured
    */
   get smtp(): LoggoSMTPConfig | undefined {
     return this._smtp;
@@ -217,6 +271,9 @@ class Config {
 
   /**
    * Gets the email throttle time in milliseconds.
+   *
+   * @readonly
+   * @returns {number} Throttle time in milliseconds
    */
   get throttle(): number {
     return this._throttle;

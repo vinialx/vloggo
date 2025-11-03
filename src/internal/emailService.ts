@@ -3,6 +3,13 @@ import Config from "../config/config";
 
 import FormatService from "./formatService";
 
+/**
+ * Service responsible for sending email notifications via SMTP.
+ * Handles error notifications with throttling to prevent spam.
+ *
+ * @class EmailService
+ */
+
 class EmailService {
   private format: FormatService = new FormatService();
   private transporter: nodemailer.Transporter | null = null;
@@ -10,19 +17,29 @@ class EmailService {
   private _ready: boolean = false;
   private lastEmailSent: number = 0;
 
+  /**
+   * Creates an instance of EmailService and initializes the SMTP transport.
+   *
+   * @param {Config} config - Configuration object containing SMTP settings
+   */
+
   constructor(private config: Config) {
     this.initialize();
   }
 
   /**
-   * Initializes SMTP transport.
+   * Initializes SMTP transport using nodemailer.
+   * Sets up connection pooling and authentication.
+   * Logs initialization status if debug mode is enabled.
+   *
    * @private
+   * @returns {void}
    */
 
   private initialize(): void {
     if (!this.config.smtp) {
       if (this.config.console) {
-        console.log(
+        console.info(
           `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
         );
       }
@@ -46,7 +63,7 @@ class EmailService {
       this._ready = true;
 
       if (this.config.debug) {
-        console.log(
+        console.info(
           `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized succesfully`
         );
       }
@@ -58,6 +75,26 @@ class EmailService {
       this.transporter = null;
     }
   }
+
+  /**
+   * Sends an error notification email to configured recipients.
+   * Implements throttling based on config.throttle to prevent email spam.
+   *
+   * @async
+   * @param {string} client - Name of the client/application reporting the error
+   * @param {string} code - Error code identifier
+   * @param {string} error - Detailed error message
+   * @returns {Promise<void>}
+   *
+   * @example
+   * ```typescript
+   * await emailService.sendErrorNotification(
+   *   "MyApp",
+   *   "ERR_DATABASE",
+   *   "Failed to connect to database"
+   * );
+   * ```
+   */
 
   async sendErrorNotification(
     client: string,
@@ -75,7 +112,7 @@ class EmailService {
 
     if (now - this.lastEmailSent < this.config.throttle) {
       if (this.config.debug) {
-        console.log(
+        console.info(
           `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : email throttled > ${now - this.lastEmailSent} ms remaining`
         );
       }
@@ -109,7 +146,7 @@ class EmailService {
     try {
       await this.transporter.sendMail(emailContent);
       if (this.config.debug) {
-        console.log(
+        console.info(
           `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : error email sent successfully to ${recipients}`
         );
       }
@@ -119,6 +156,13 @@ class EmailService {
       );
     }
   }
+
+  /**
+   * Gets the ready status of the email service.
+   *
+   * @readonly
+   * @returns {boolean} True if the service is initialized and ready to send emails
+   */
 
   get ready(): boolean {
     return this._ready;

@@ -1,5 +1,12 @@
 import { LogEntry } from "../interfaces/interfaces";
 
+/**
+ * Service responsible for formatting log-related strings.
+ * Provides utilities for date formatting, filename generation, separators, and caller traceability.
+ *
+ * @class FormatService
+ */
+
 class FormatService {
   constructor(private client?: string) {
     if (!client) {
@@ -38,6 +45,7 @@ class FormatService {
    * // "log-2025-10-29.txt"
    * ```
    */
+  
   filename(): string {
     const now = new Date();
     const year = now.getFullYear();

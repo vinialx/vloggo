@@ -5,6 +5,13 @@ import * as fsp from "fs/promises";
 import Config from "../config/config";
 import FormatService from "./formatService";
 
+/**
+ * Service responsible for managing log file operations.
+ * Handles file creation, writing, rotation, and cleanup based on retention policies.
+ *
+ * @class FileService
+ */
+
 class FileService {
   private _filename: string = "";
   private _currentDay: number = 0;
@@ -12,9 +19,23 @@ class FileService {
 
   private format: FormatService;
 
+  /**
+   * Creates an instance of FileService.
+   *
+   * @param {Config} config - Configuration object containing directory and file retention settings
+   */
+
   constructor(private config: Config) {
     this.format = new FormatService(this.config.client);
   }
+
+  /**
+   * Initializes the file service by creating the log directory and first log file.
+   * Sets up the current day tracking for rotation purposes.
+   * This method is idempotent - calling it multiple times has no effect after first initialization.
+   *
+   * @returns {void}
+   */
 
   initialize(): void {
     if (this._initicialized) {
@@ -39,6 +60,19 @@ class FileService {
     }
   }
 
+  /**
+   * Writes a line to the current log file.
+   * Checks if the service is initialized before writing.
+   *
+   * @param {string} line - Log line to write (should include newline character)
+   * @returns {void}
+   *
+   * @example
+   * ```typescript
+   * fileService.write("[INFO] User logged in\n");
+   * ```
+   */
+
   write(line: string): void {
     if (!this.initialized) {
       console.warn(
@@ -55,6 +89,14 @@ class FileService {
       );
     }
   }
+
+  /**
+   * Verifies if log rotation is needed by checking if the day has changed.
+   * If rotation is needed, creates a new log file and triggers cleanup of old files.
+   * This method should be called before each write operation to ensure proper rotation.
+   *
+   * @returns {void}
+   */
 
   verify(): void {
     const today = new Date().getDate();
@@ -84,6 +126,16 @@ class FileService {
       );
     }
   }
+
+  /**
+   * Rotates log files by removing old files that exceed the retention count.
+   * Scans the log directory, sorts files by modification time (newest first),
+   * and deletes the oldest files when the count exceeds config.filecount.
+   *
+   * @private
+   * @async
+   * @returns {Promise<void>}
+   */
 
   private async rotate(): Promise<void> {
     try {
@@ -126,6 +178,13 @@ class FileService {
       );
     }
   }
+
+  /**
+   * Gets the initialization status of the file service.
+   *
+   * @readonly
+   * @returns {boolean} True if the service is initialized and ready to write logs
+   */
 
   get initialized(): boolean {
     return this._initicialized;
