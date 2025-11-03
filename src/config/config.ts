@@ -127,17 +127,28 @@ class Config {
   /**
    * Updates configuration properties.
    * Only updates properties that are provided in the options parameter.
+   * Supports partial SMTP configuration updates - merges with existing SMTP settings.
    *
-   * @param {Partial<Config>} options - Configuration properties to update
+   * @param {Partial<LoggoConfig> & { smtp?: Partial<LoggoSMTPConfig> }} options - Configuration properties to update
    * @returns {void}
    *
    * @example
    * ```typescript
+   * // Update simple properties
    * config.update({ debug: false, throttle: 60000 });
+   *
+   * // Update only specific SMTP properties
+   * config.update({
+   *   smtp: {
+   *     host: 'new-smtp.example.com',
+   *     port: 587
+   *   }
+   * });
    * ```
    */
-
-  update(options: Partial<Config>): void {
+  update(
+    options: Partial<LoggoConfig> & { smtp?: Partial<LoggoSMTPConfig> }
+  ): void {
     if (options.client) {
       this._client = options.client;
     }
@@ -145,11 +156,11 @@ class Config {
       this._directory = options.directory;
     }
 
-    if (options.debug) {
+    if (options.debug !== undefined) {
       this._debug = options.debug;
     }
 
-    if (options.console) {
+    if (options.console !== undefined) {
       this._console = options.console;
     }
 
@@ -157,7 +168,7 @@ class Config {
       this._filecount = options.filecount;
     }
 
-    if (options.notify) {
+    if (options.notify !== undefined) {
       this._notify = options.notify;
     }
 
@@ -166,7 +177,10 @@ class Config {
     }
 
     if (options.smtp) {
-      this._smtp = options.smtp;
+      this._smtp = {
+        ...this._smtp,
+        ...options.smtp,
+      } as LoggoSMTPConfig;
     }
   }
 
