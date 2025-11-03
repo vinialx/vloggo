@@ -15,17 +15,17 @@ Logging library for Node.js and Bun with file rotation, SMTP notifications, and 
 ## Installation
 
 ```bash
-npm install loggo
+npm install @vinialx/loggo
 ```
 
 ```bash
-bun add loggo
+bun add @vinialx/loggo
 ```
 
 ## Quick Start
 
 ```typescript
-import { Loggo } from "loggo";
+import { Loggo } from "@vinialx/loggo";
 
 const logger = new Loggo({ client: "MyApp" });
 
@@ -191,7 +191,7 @@ logger.config.update({ debug: true, throttle: 60000 });
 
 ```typescript
 import express from "express";
-import { Loggo } from "loggo";
+import { Loggo } from "@vinialx/loggo";
 
 const app = express();
 const logger = new Loggo({ client: "API" });
