@@ -1,10 +1,7 @@
-import * as os from "os";
-import * as path from "path";
+import { LogEntry, LogLevel } from "../interfaces/interfaces";
 
-import { LogEntry, LoggoSMTPConfig, LogLevel } from "../interfaces/interfaces";
-
-import EmailService from "../internal/emailService";
 import FileService from "../internal/fileService";
+import EmailService from "../internal/emailService";
 import FormatService from "../internal/formatService";
 import Config, { defaultConfig } from "../config/config";
 
@@ -13,78 +10,22 @@ export class Loggo {
   private emailService: EmailService;
   private formatService: FormatService;
 
-  private _client: string;
-
-  private _directory: string;
-
-  private _console: boolean;
-  private _filecount: number;
-
-  private _debug: boolean;
-  private _notify: boolean;
-  private _throttle: number;
-  private _smtp: LoggoSMTPConfig | undefined;
-
-  constructor(options: Config = defaultConfig) {
-    this._client = options.client || "Loggo";
-    this._directory =
-      options.directory || path.resolve(os.homedir(), this._client, "logs");
-
-    this._smtp = options.smtp;
-    this._debug = options.debug;
-    this._notify = options.notify;
-    this._console = options.console;
-    this._throttle = options.throttle;
-    this._filecount = options.filecount;
-
-    this.fileService = new FileService(options);
-    this.formatService = new FormatService(this._client);
-    this.emailService = new EmailService(
-      options.smtp,
-      options.throttle,
-      options.debug
-    );
+  constructor(private _config: Config = defaultConfig) {
+    this.fileService = new FileService(this._config);
+    this.formatService = new FormatService(this._config.client);
+    this.emailService = new EmailService(this._config);
 
     this.fileService.initialize();
   }
 
-  update(options: Partial<Config>): void {
-    if (options.client) {
-      this._client = options.client;
-    }
-    if (options.directory) {
-      this._directory = options.directory;
-    }
-
-    if (options.debug) {
-      this._debug = options.debug;
-    }
-
-    if (options.console) {
-      this._console = options.console;
-    }
-
-    if (options.filecount) {
-      this._filecount = options.filecount;
-    }
-
-    if (options.notify) {
-      this._notify = options.notify;
-    }
-
-    if (options.throttle) {
-      this._throttle = options.throttle;
-    }
-
-    if (options.smtp) {
-      this._smtp = options.smtp;
-    }
+  get config(): Config {
+    return this._config;
   }
 
   private log(level: LogLevel, code: string, message: string): void {
     if (!this.fileService.initialized) {
       console.error(
-        `[Loggo] [${this.formatService.date()}] [ERROR] : loggo not initialized > skipping log`
+        `[Loggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : loggo not initialized > skipping log`
       );
       return;
     }
@@ -102,7 +43,7 @@ export class Loggo {
     const line = this.formatService.line(entry);
     this.fileService.write(line);
 
-    if (this._console) {
+    if (this._config.console) {
       console.log(line.trim());
     }
   }
@@ -127,19 +68,19 @@ export class Loggo {
     this.log("FATAL", code, text);
 
     if (!this.emailService.ready) {
-      if (this._debug) {
+      if (this._config.debug) {
         console.log(
-          `[Loggo] [${this.formatService.date()}] [INFO] : smtp not ready`
+          `[Loggo] > [${this._config.client}] [${this.formatService.date()}] [INFO] : notification service not ready`
         );
       }
       return;
     }
 
     this.emailService
-      .sendErrorNotification(this._client, code, text)
+      .sendErrorNotification(this._config.client, code, text)
       .catch((error) =>
         console.error(
-          `[Loggo] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
+          `[Loggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
         )
       );
   }

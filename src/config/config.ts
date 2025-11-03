@@ -1,24 +1,25 @@
 import * as os from "os";
 import * as path from "path";
+import FormatService from "../internal/formatService";
 
 import { LoggoConfig, LoggoSMTPConfig } from "../interfaces/interfaces";
 
 /**
  * Configuration manager for Loggo.
- * Manages all settings including SMTP, file rotation, and debugging.
- * 
+ * Manages all settings including SMTP, file rotation and debugging.
+ *
  * @example
  * ```typescript
  * // Use default config (from .env)
  * const config = new Config();
- * 
+ *
  * // Custom config
  * const customConfig = new Config({
  *   client: 'MyApp',
  *   directory: './logs',
  *   console: false
  * });
- * 
+ *
  * // Clone with overrides
  * const apiConfig = config.clone({ client: 'API' });
  * ```
@@ -26,15 +27,15 @@ import { LoggoConfig, LoggoSMTPConfig } from "../interfaces/interfaces";
 
 class Config {
   private _debug: boolean;
-  private _console: boolean;
-
   private _client!: string;
+  private _notify: boolean;
+  private _console: boolean;
+  private _throttle: number;
   private _filecount: number;
   private _directory!: string;
-
-  private _notify: boolean;
-  private _throttle: number;
   private _smtp: LoggoSMTPConfig | undefined = undefined;
+
+  private format: FormatService = new FormatService();
 
   /**
    * Creates a new Config instance.
@@ -76,14 +77,18 @@ class Config {
     const password = process.env.SMTP_PASSWORD;
 
     if (!to || !from || !host || !portStr || !username || !password) {
-      console.warn("[Loggo] SMTP disabled: missing configuration.");
+      console.warn(
+        `[Loggo] > [${this.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
+      );
       this._notify = false;
       return;
     }
 
     const port = parseInt(portStr);
     if (isNaN(port) || port <= 0 || port > 65535) {
-      console.warn(`[Loggo] SMTP disabled: invalid port "${portStr}".`);
+      console.error(
+        `[Loggo] > [${this.client}] [${this.format.date()}] [ERROR] : notification service disabled > invalid port - ${portStr}.`
+      );
       this._notify = false;
       return;
     }
@@ -101,6 +106,39 @@ class Config {
     };
 
     this._notify = true;
+  }
+
+  update(options: Partial<Config>): void {
+    if (options.client) {
+      this._client = options.client;
+    }
+    if (options.directory) {
+      this._directory = options.directory;
+    }
+
+    if (options.debug) {
+      this._debug = options.debug;
+    }
+
+    if (options.console) {
+      this._console = options.console;
+    }
+
+    if (options.filecount) {
+      this._filecount = options.filecount;
+    }
+
+    if (options.notify) {
+      this._notify = options.notify;
+    }
+
+    if (options.throttle) {
+      this._throttle = options.throttle;
+    }
+
+    if (options.smtp) {
+      this._smtp = options.smtp;
+    }
   }
 
   /**
@@ -171,6 +209,13 @@ class Config {
   }
 
   /**
+   * Gets the SMTP config.
+   */
+  get smtp(): LoggoSMTPConfig | undefined {
+    return this._smtp;
+  }
+
+  /**
    * Gets the email throttle time in milliseconds.
    */
   get throttle(): number {
@@ -178,4 +223,5 @@ class Config {
   }
 }
 
+export const defaultConfig = new Config();
 export default Config;

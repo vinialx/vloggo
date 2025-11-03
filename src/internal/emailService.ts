@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { LoggoSMTPConfig } from "../interfaces/interfaces";
+import Config from "../config/config";
 
 import FormatService from "./formatService";
 
@@ -10,11 +10,7 @@ class EmailService {
   private _ready: boolean = false;
   private lastEmailSent: number = 0;
 
-  constructor(
-    private smtpConfig: LoggoSMTPConfig | undefined,
-    private throttle: number,
-    private debug: boolean
-  ) {
+  constructor(private config: Config) {
     this.initialize();
   }
 
@@ -24,10 +20,10 @@ class EmailService {
    */
 
   private initialize(): void {
-    if (!this.smtpConfig) {
-      if (this.debug) {
+    if (!this.config.smtp) {
+      if (this.config.console) {
         console.log(
-          `[Loggo] [${this.format.date()}] [INFO] : SMTP not configured - email notifications disabled`
+          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
         );
       }
       return;
@@ -35,28 +31,28 @@ class EmailService {
 
     try {
       this.transporter = nodemailer.createTransport({
-        host: this.smtpConfig.host,
-        port: this.smtpConfig.port,
-        secure: this.smtpConfig.secure ?? this.smtpConfig.port === 465,
+        host: this.config.smtp.host,
+        port: this.config.smtp.port,
+        secure: this.config.smtp.secure ?? this.config.smtp.port === 465,
         pool: true,
         auth: {
-          user: this.smtpConfig.username,
-          pass: this.smtpConfig.password,
+          user: this.config.smtp.username,
+          pass: this.config.smtp.password,
         },
-        debug: this.debug,
-        logger: this.debug,
+        debug: this.config.debug,
+        logger: this.config.debug,
       });
 
       this._ready = true;
 
-      if (this.debug) {
+      if (this.config.debug) {
         console.log(
-          `[Loggo] [${this.format.date()}] [INFO] : SMTP initialized succesfully`
+          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized succesfully`
         );
       }
     } catch (error) {
       console.error(
-        `[Loggo] [${this.format.date()}] [ERROR] : error initializing loggo smtp > ${(error as Error).message}`
+        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error initializing notification service > ${(error as Error).message}`
       );
 
       this.transporter = null;
@@ -66,22 +62,21 @@ class EmailService {
   async sendErrorNotification(
     client: string,
     code: string,
-    module: string,
     error: string
   ): Promise<void> {
-    if (!this.transporter || !this.smtpConfig) {
+    if (!this.transporter || !this.config.smtp) {
       console.error(
-        `[Loggo] [${this.format.date()}] [ERROR] : failed to send error message > email service not initialized`
+        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > email service not initialized`
       );
       return;
     }
 
     const now = Date.now();
 
-    if (now - this.lastEmailSent < this.throttle) {
-      if (this.debug) {
+    if (now - this.lastEmailSent < this.config.throttle) {
+      if (this.config.debug) {
         console.log(
-          `[Loggo] [${this.format.date()}] [INFO] : email throttled > ${now - this.lastEmailSent} ms remaining`
+          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : email throttled > ${now - this.lastEmailSent} ms remaining`
         );
       }
 
@@ -90,19 +85,21 @@ class EmailService {
 
     this.lastEmailSent = now;
 
-    const recipients = Array.isArray(this.smtpConfig.to)
-      ? this.smtpConfig.to.join(", ")
-      : this.smtpConfig.to;
+    const recipients = Array.isArray(this.config.smtp.to)
+      ? this.config.smtp.to.join(", ")
+      : this.config.smtp.to;
+
+    const caller = this.format.caller(3);
 
     const emailContent = {
-      from: `"${client}" <${this.smtpConfig.from}>`,
+      from: `"${client}" <${this.config.smtp.from}>`,
       to: recipients,
       subject: `[${client}] Error Alert - ${code}`,
       html: `
         <h2>Error Report</h2>
         <p><strong>Client:</strong> ${client}</p>
         <p><strong>Error Code:</strong> ${code}</p>
-        <p><strong>Module:</strong> ${module}</p>
+        <p><strong>Caller:</strong> ${caller}</p>
         <p><strong>Error Message:</strong> ${error}</p>
         <p><strong>Timestamp:</strong> ${new Date().toLocaleString("pt-BR")}</p>
         <hr>
@@ -111,22 +108,16 @@ class EmailService {
 
     try {
       await this.transporter.sendMail(emailContent);
-      if (this.debug) {
+      if (this.config.debug) {
         console.log(
-          `[Loggo] [${this.format.date()}] [INFO] : error email sent successfully to ${recipients}`
+          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : error email sent successfully to ${recipients}`
         );
       }
     } catch (error) {
       console.error(
-        `[Loggo] [${this.format.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
+        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
       );
     }
-  }
-
-  reconfigure(smtpConfig: LoggoSMTPConfig | undefined): void {
-    this.smtpConfig = smtpConfig;
-    this.transporter = null;
-    this.initialize();
   }
 
   get ready(): boolean {

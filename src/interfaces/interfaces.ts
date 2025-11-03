@@ -19,12 +19,12 @@ export interface LoggoSMTPConfig {
   secure: boolean;
 }
 
-export type LogLevel = "INFO" | "WARN" | "ERROR" | "CRITICAL" | "DEBUG";
+export type LogLevel = "INFO" | "WARN" | "ERROR" | "FATAL" | "DEBUG";
 
 export interface LogEntry {
   level: LogLevel;
   timestamp: string;
   code: string;
-  module: string;
+  caller: string;
   message: string;
 }
