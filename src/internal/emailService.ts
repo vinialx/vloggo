@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
-import Config from "../config/config";
 
+import Config from "../config/config";
 import FormatService from "./formatService";
 
 /**
@@ -64,7 +64,7 @@ class EmailService {
 
       if (this.config.debug) {
         console.info(
-          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized succesfully`
+          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized successfully`
         );
       }
     } catch (error) {
