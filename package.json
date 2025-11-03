@@ -1,5 +1,5 @@
 {
-  "name": "loggo",
+  "name": "@vinialx/loggo",
   "version": "1.0.0",
   "private": false,
   "description": "A comprehensive TypeScript logging module with file-based logging and email notification capabilities.",
