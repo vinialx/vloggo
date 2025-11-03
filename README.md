@@ -1,6 +1,6 @@
 # Loggo
 
-Professional logging library for Node.js and Bun with file rotation, SMTP notifications, and JSON output support.
+Logging library for Node.js and Bun with file rotation, SMTP notifications, and JSON output support.
 
 ## Features
 
