@@ -68,7 +68,7 @@ class FileService {
       this._initialized = true;
     } catch (error) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error initializing loggo > ${(error as Error).message}`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error initializing VLoggo > ${(error as Error).message}`
       );
     }
   }
@@ -89,7 +89,7 @@ class FileService {
   write(line: string, json?: string): void {
     if (!this.initialized) {
       console.warn(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [WARN] : file service not initialized`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [WARN] : file service not initialized`
       );
       return;
     }
@@ -102,7 +102,7 @@ class FileService {
       }
     } catch (error) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to write to log file > ${(error as Error).message}`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to write to log file > ${(error as Error).message}`
       );
     }
   }
@@ -145,12 +145,12 @@ class FileService {
 
       this.rotate().catch((error) =>
         console.error(
-          `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error rotating loggo > ${(error as Error).message}`
+          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error rotating VLoggo > ${(error as Error).message}`
         )
       );
     } catch (error) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error verifying loggo rotation > ${(error as Error).message}`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error verifying VLoggo rotation > ${(error as Error).message}`
       );
     }
   }
@@ -195,7 +195,7 @@ class FileService {
               await fsp.unlink(file.path);
             } catch (error) {
               console.error(
-                `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error deleting old .txt file > ${(error as Error).message}`
+                `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error deleting old .txt file > ${(error as Error).message}`
               );
             }
           })
@@ -231,7 +231,7 @@ class FileService {
                 await fsp.unlink(file.path);
               } catch (error) {
                 console.error(
-                  `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error deleting old .json file > ${(error as Error).message}`
+                  `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error deleting old .json file > ${(error as Error).message}`
                 );
               }
             })
@@ -240,7 +240,7 @@ class FileService {
       }
     } catch (error) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : loggo cleanup failed > ${(error as Error).message}`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : VLoggo cleanup failed > ${(error as Error).message}`
       );
     }
   }

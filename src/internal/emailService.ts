@@ -40,7 +40,7 @@ class EmailService {
     if (!this.config.smtp) {
       if (this.config.console) {
         console.info(
-          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
+          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
         );
       }
       return;
@@ -64,12 +64,12 @@ class EmailService {
 
       if (this.config.debug) {
         console.info(
-          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized successfully`
+          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized successfully`
         );
       }
     } catch (error) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error initializing notification service > ${(error as Error).message}`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error initializing notification service > ${(error as Error).message}`
       );
 
       this.transporter = null;
@@ -103,7 +103,7 @@ class EmailService {
   ): Promise<void> {
     if (!this.transporter || !this.config.smtp) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > email service not initialized`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > email service not initialized`
       );
       return;
     }
@@ -113,7 +113,7 @@ class EmailService {
     if (now - this.lastEmailSent < this.config.throttle) {
       if (this.config.debug) {
         console.info(
-          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : email throttled > ${now - this.lastEmailSent} ms remaining`
+          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : email throttled > ${now - this.lastEmailSent} ms remaining`
         );
       }
 
@@ -147,12 +147,12 @@ class EmailService {
       await this.transporter.sendMail(emailContent);
       if (this.config.debug) {
         console.info(
-          `[Loggo] > [${this.config.client}] [${this.format.date()}] [INFO] : error email sent successfully to ${recipients}`
+          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : error email sent successfully to ${recipients}`
         );
       }
     } catch (error) {
       console.error(
-        `[Loggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
+        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
       );
     }
   }

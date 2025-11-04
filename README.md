@@ -1,4 +1,4 @@
-# Loggo
+# VLoggo
 
 Logging library for Node.js and Bun with file rotation, SMTP notifications, and JSON output support.
 
@@ -15,19 +15,19 @@ Logging library for Node.js and Bun with file rotation, SMTP notifications, and 
 ## Installation
 
 ```bash
-npm install @vinialx/loggo
+npm install @vinialx/vloggo
 ```
 
 ```bash
-bun add @vinialx/loggo
+bun add @vinialx/vloggo
 ```
 
 ## Quick Start
 
 ```typescript
-import { Loggo } from "@vinialx/loggo";
+import { VLoggo } from "@vinialx/vloggo";
 
-const logger = new Loggo({ client: "MyApp" });
+const logger = new VLoggo({ client: "MyApp" });
 
 logger.info("APP_START", "Application started");
 logger.warn("HIGH_MEMORY", "Memory usage above 80%");
@@ -40,7 +40,7 @@ logger.fatal("DB_DOWN", "Database connection lost");
 ### Basic Configuration
 
 ```typescript
-const logger = new Loggo({
+const logger = new VLoggo({
   client: "MyApp", // Application name
   console: true, // Enable console output
   debug: false, // Enable debug logs
@@ -51,7 +51,7 @@ const logger = new Loggo({
 ### File Configuration
 
 ```typescript
-const logger = new Loggo({
+const logger = new VLoggo({
   client: "MyApp",
   directory: {
     txt: "/var/log/myapp", // Text log directory
@@ -67,7 +67,7 @@ const logger = new Loggo({
 ### SMTP Configuration
 
 ```typescript
-const logger = new Loggo({
+const logger = new VLoggo({
   client: "MyApp",
   smtp: {
     host: "smtp.gmail.com",
@@ -100,12 +100,12 @@ SMTP_TO=admin@myapp.com
 ### Constructor
 
 ```typescript
-new Loggo(options?: Partial<LoggoConfig>)
+new VLoggo(options?: Partial<VLoggoConfig>)
 ```
 
 **Options:**
 
-- `client`: Application name (default: 'Loggo')
+- `client`: Application name (default: 'VLoggo')
 - `console`: Enable console output (default: true)
 - `debug`: Enable debug mode (default: false)
 - `json`: Enable JSON output (default: false)
@@ -137,10 +137,10 @@ logger.config.client; // string
 logger.config.debug; // boolean
 logger.config.console; // boolean
 logger.config.json; // boolean
-logger.config.directory; // LoggoDirectory
-logger.config.filecount; // LoggoFilecount
+logger.config.directory; // VLoggoDirectory
+logger.config.filecount; // VLoggoFilecount
 logger.config.notify; // boolean
-logger.config.smtp; // LoggoSMTPConfig | undefined
+logger.config.smtp; // VLoggoSMTPConfig | undefined
 logger.config.throttle; // number
 
 // Clone configuration
@@ -191,10 +191,10 @@ logger.config.update({ debug: true, throttle: 60000 });
 
 ```typescript
 import express from "express";
-import { Loggo } from "@vinialx/loggo";
+import { VLoggo } from "@vinialx/vloggo";
 
 const app = express();
-const logger = new Loggo({ client: "API" });
+const logger = new VLoggo({ client: "API" });
 
 app.use((req, res, next) => {
   logger.info("REQUEST", `${req.method} ${req.path}`);
@@ -243,14 +243,14 @@ cron.schedule("0 0 * * *", () => {
 Full TypeScript definitions are included:
 
 ```typescript
-import { Loggo, LoggoConfig, LogLevel, LogEntry } from "loggo";
+import { VLoggo, VLoggoConfig, LogLevel, LogEntry } from "vloggo";
 
-const config: Partial<LoggoConfig> = {
+const config: Partial<VLoggoConfig> = {
   client: "TypeScriptApp",
   debug: true,
 };
 
-const logger = new Loggo(config);
+const logger = new VLoggo(config);
 ```
 
 ## Performance Considerations
@@ -266,7 +266,7 @@ MIT
 
 ## Support
 
-For issues and feature requests, visit: https://github.com/vinialx/loggo/issues
+For issues and feature requests, visit: https://github.com/vinialx/vloggo/issues
 
 
 ## Author

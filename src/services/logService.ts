@@ -6,33 +6,33 @@ import FormatService from "../internal/formatService";
 import Config, { defaultConfig } from "../config/config";
 
 /**
- * Main logging service for Loggo.
+ * Main logging service for VLoggo.
  * Provides methods for logging at different severity levels with automatic file writing,
  * console output, and email notifications for critical errors.
  *
- * @class Loggo
+ * @class VLoggo
  */
 
-export class Loggo {
+export class VLoggo {
   private _config: Config;
   private fileService: FileService;
   private emailService: EmailService;
   private formatService: FormatService;
 
   /**
-   * Creates a new Loggo instance with the specified configuration.
+   * Creates a new VLoggo instance with the specified configuration.
    * Initializes file service, format service, and email service.
    * Automatically creates log directories and starts file rotation.
    *
-   * @param {Partial<LoggoConfig>} options - Configuration options (all optional, uses defaults for missing values)
+   * @param {Partial<VLoggoConfig>} options - Configuration options (all optional, uses defaults for missing values)
    *
    * @example
    * ```typescript
    * // Minimal configuration
-   * const logger = new Loggo({ client: 'MyApp' });
+   * const logger = new VLoggo({ client: 'MyApp' });
    *
    * // With multiple options
-   * const logger = new Loggo({
+   * const logger = new VLoggo({
    *   client: 'MyApp',
    *   debug: true,
    *   console: false,
@@ -40,7 +40,7 @@ export class Loggo {
    * });
    *
    * // With SMTP for fatal error notifications
-   * const logger = new Loggo({
+   * const logger = new VLoggo({
    *   client: 'MyApp',
    *   smtp: {
    *     host: 'smtp.gmail.com',
@@ -94,7 +94,7 @@ export class Loggo {
   private log(level: LogLevel, code: string, message: string): void {
     if (!this.fileService.initialized) {
       console.error(
-        `[Loggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : loggo not initialized > skipping log`
+        `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : VLoggo not initialized > skipping log`
       );
       return;
     }
@@ -230,7 +230,7 @@ export class Loggo {
     if (!this.emailService.ready) {
       if (this._config.debug) {
         console.info(
-          `[Loggo] > [${this._config.client}] [${this.formatService.date()}] [INFO] : notification service not ready`
+          `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [INFO] : notification service not ready`
         );
       }
       return;
@@ -240,7 +240,7 @@ export class Loggo {
       .sendErrorNotification(this._config.client, code, text)
       .catch((error) =>
         console.error(
-          `[Loggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
+          `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
         )
       );
   }

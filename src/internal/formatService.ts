@@ -10,7 +10,7 @@ import { LogEntry } from "../interfaces/interfaces";
 class FormatService {
   constructor(private client?: string) {
     if (!client) {
-      client = "Loggo";
+      client = "VLoggo";
     }
   }
 
@@ -106,7 +106,7 @@ class FormatService {
   separator(): string {
     const separator = "\n" + "_".repeat(50) + "\n\n";
     const timestamp = this.date();
-    return `${separator}[${this.client}] [${timestamp}] [INIT] : loggo initialized successfully \n`;
+    return `${separator}[${this.client}] [${timestamp}] [INIT] : VLoggo initialized successfully \n`;
   }
 
   /**
@@ -119,7 +119,7 @@ class FormatService {
       client: this.client,
       timestamp: this.isoDate(new Date()),
       level: "INIT",
-      message: "loggo initialized successfully",
+      message: "VLoggo initialized successfully",
     };
     return JSON.stringify(initEntry) + "\n";
   }

@@ -3,14 +3,14 @@ import * as path from "path";
 import FormatService from "../internal/formatService";
 
 import {
-  LoggoConfig,
-  LoggoSMTPConfig,
-  LoggoDirectory,
-  LoggoFilecount,
+  VLoggoConfig,
+  VLoggoSMTPConfig,
+  VLoggoDirectory,
+  VLoggoFilecount,
 } from "../interfaces/interfaces";
 
 /**
- * Configuration manager for Loggo.
+ * Configuration manager for VVLoggo.
  * Manages all settings including SMTP, file rotation and debugging.
  *
  * @class Config
@@ -22,12 +22,12 @@ class Config {
   private _debug: boolean;
   private _console: boolean;
 
-  private _filecount: LoggoFilecount;
-  private _directory!: LoggoDirectory;
+  private _filecount: VLoggoFilecount;
+  private _directory!: VLoggoDirectory;
 
   private _notify: boolean;
   private _throttle: number;
-  private _smtp: LoggoSMTPConfig | undefined = undefined;
+  private _smtp: VLoggoSMTPConfig | undefined = undefined;
 
   private format: FormatService = new FormatService();
 
@@ -35,7 +35,7 @@ class Config {
    * Creates a new Config instance.
    * Loads configuration from options or environment variables.
    *
-   * @param {Partial<LoggoConfig>} [options] - Optional configuration overrides
+   * @param {Partial<VLoggoConfig>} [options] - Optional configuration overrides
    *
    * @example
    * ```typescript
@@ -50,8 +50,8 @@ class Config {
    * ```
    */
 
-  constructor(options?: Partial<LoggoConfig>) {
-    this._client = options?.client || process.env.CLIENT_NAME || "Loggo";
+  constructor(options?: Partial<VLoggoConfig>) {
+    this._client = options?.client || process.env.CLIENT_NAME || "VLoggo";
     this._json = options?.json ?? false;
     this._debug = options?.debug ?? false;
     this._console = options?.console ?? true;
@@ -66,7 +66,7 @@ class Config {
     this._throttle = options?.throttle ?? 30000;
 
     if (options?.smtp) {
-      this._smtp = options.smtp as LoggoSMTPConfig;
+      this._smtp = options.smtp as VLoggoSMTPConfig;
       this._notify = true;
     } else {
       this.loadSMTPFromEnv();
@@ -100,7 +100,7 @@ class Config {
 
     if (!to || !from || !host || !portStr || !username || !password) {
       console.warn(
-        `[Loggo] > [${this.client}] [${this.format.date()}] [WARN] : notification service disabled > missing configuration`
+        `[VLoggo] > [${this.client}] [${this.format.date()}] [WARN] : notification service disabled > missing configuration`
       );
       this._notify = false;
       return;
@@ -109,7 +109,7 @@ class Config {
     const port = parseInt(portStr);
     if (isNaN(port) || port <= 0 || port > 65535) {
       console.error(
-        `[Loggo] > [${this.client}] [${this.format.date()}] [ERROR] : notification service disabled > invalid port - ${portStr}.`
+        `[VLoggo] > [${this.client}] [${this.format.date()}] [ERROR] : notification service disabled > invalid port - ${portStr}.`
       );
       this._notify = false;
       return;
@@ -135,7 +135,7 @@ class Config {
    * Only updates properties that are provided in the options parameter.
    * Supports partial SMTP configuration updates - merges with existing SMTP settings.
    *
-   * @param {Partial<LoggoConfig> & { smtp?: Partial<LoggoSMTPConfig> }} options - Configuration properties to update
+   * @param {Partial<VLoggoConfig> & { smtp?: Partial<VLoggoSMTPConfig> }} options - Configuration properties to update
    * @returns {void}
    *
    * @example
@@ -153,7 +153,7 @@ class Config {
    * ```
    */
   update(
-    options: Partial<LoggoConfig> & { smtp?: Partial<LoggoSMTPConfig> }
+    options: Partial<VLoggoConfig> & { smtp?: Partial<VLoggoSMTPConfig> }
   ): void {
     if (options.client) {
       this._client = options.client;
@@ -201,7 +201,7 @@ class Config {
       this._smtp = {
         ...this._smtp,
         ...options.smtp,
-      } as LoggoSMTPConfig;
+      } as VLoggoSMTPConfig;
     }
   }
 
@@ -209,7 +209,7 @@ class Config {
    * Creates a clone of this config with optional overrides.
    * The original config is not modified.
    *
-   * @param {Partial<LoggoConfig>} [overrides] - Properties to override in the cloned config
+   * @param {Partial<VLoggoConfig>} [overrides] - Properties to override in the cloned config
    * @returns {Config} New Config instance with overrides applied
    *
    * @example
@@ -219,7 +219,7 @@ class Config {
    * ```
    */
 
-  clone(overrides?: Partial<LoggoConfig>): Config {
+  clone(overrides?: Partial<VLoggoConfig>): Config {
     return new Config({
       client: overrides?.client ?? this._client,
       json: overrides?.json ?? this._json,
@@ -285,7 +285,7 @@ class Config {
    * @returns {number} Maximum file count before rotation
    */
 
-  get filecount(): LoggoFilecount {
+  get filecount(): VLoggoFilecount {
     return this._filecount;
   }
 
@@ -296,7 +296,7 @@ class Config {
    * @returns {string} Absolute path to log directory
    */
 
-  get directory(): LoggoDirectory {
+  get directory(): VLoggoDirectory {
     return this._directory;
   }
 
@@ -315,10 +315,10 @@ class Config {
    * Gets the SMTP configuration.
    *
    * @readonly
-   * @returns {LoggoSMTPConfig | undefined} SMTP config object or undefined if not configured
+   * @returns {VLoggoSMTPConfig | undefined} SMTP config object or undefined if not configured
    */
 
-  get smtp(): LoggoSMTPConfig | undefined {
+  get smtp(): VLoggoSMTPConfig | undefined {
     return this._smtp;
   }
 
@@ -334,15 +334,15 @@ class Config {
   }
 }
 
-export const defaultConfig: LoggoConfig = {
-  client: "Loggo",
+export const defaultConfig: VLoggoConfig = {
+  client: "VLoggo",
   json: false,
   debug: false,
   console: true,
   filecount: { txt: 31, json: 31 },
   directory: {
-    txt: path.resolve(os.homedir(), "Loggo", "logs"),
-    json: path.resolve(os.homedir(), "Loggo", "json"),
+    txt: path.resolve(os.homedir(), "VLoggo", "logs"),
+    json: path.resolve(os.homedir(), "VLoggo", "json"),
   },
   throttle: 30000,
   notify: false, // Importante: false por padrão

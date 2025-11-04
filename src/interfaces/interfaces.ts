@@ -1,28 +1,28 @@
-export interface LoggoConfig {
+export interface VLoggoConfig {
   client?: string;
   json?: boolean;
   debug?: boolean;
   console?: boolean;
 
-  directory?: LoggoDirectory;
-  filecount?: LoggoFilecount;
+  directory?: VLoggoDirectory;
+  filecount?: VLoggoFilecount;
 
   notify?: boolean;
-  smtp?: LoggoSMTPConfig;
+  smtp?: VLoggoSMTPConfig;
   throttle?: number;
 }
 
-export interface LoggoDirectory {
+export interface VLoggoDirectory {
   txt?: string;
   json?: string;
 }
 
-export interface LoggoFilecount {
+export interface VLoggoFilecount {
   txt?: number;
   json?: number;
 }
 
-export interface LoggoSMTPConfig {
+export interface VLoggoSMTPConfig {
   host: string;
   port: number;
   username: string;
