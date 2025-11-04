@@ -15,17 +15,17 @@ Logging library for Node.js and Bun with file rotation, SMTP notifications, and 
 ## Installation
 
 ```bash
-npm install @vinialx/vloggo
+npm install vloggo
 ```
 
 ```bash
-bun add @vinialx/vloggo
+bun add vloggo
 ```
 
 ## Quick Start
 
 ```typescript
-import { VLoggo } from "@vinialx/vloggo";
+import { VLoggo } from "vloggo";
 
 const logger = new VLoggo({ client: "MyApp" });
 
@@ -41,10 +41,10 @@ logger.fatal("DB_DOWN", "Database connection lost");
 
 ```typescript
 const logger = new VLoggo({
-  client: "MyApp", // Application name
-  console: true, // Enable console output
-  debug: false, // Enable debug logs
-  json: false, // Enable JSON output
+  client: "MyApp",    // Application name
+  console: true,      // Enable console output
+  debug: false,       // Enable debug logs
+  json: false,        // Enable JSON output
 });
 ```
 
@@ -54,12 +54,12 @@ const logger = new VLoggo({
 const logger = new VLoggo({
   client: "MyApp",
   directory: {
-    txt: "/var/log/myapp", // Text log directory
+    txt: "/var/log/myapp",       // Text log directory
     json: "/var/log/myapp/json", // JSON log directory
   },
   filecount: {
-    txt: 31, // Keep 31 days of text logs
-    json: 7, // Keep 7 days of JSON logs
+    txt: 31,   // Keep 31 days of text logs
+    json: 7,   // Keep 7 days of JSON logs
   },
 });
 ```
@@ -76,9 +76,9 @@ const logger = new VLoggo({
     username: "your-email@gmail.com",
     password: "your-password",
     from: "logs@myapp.com",
-    to: "admin@myapp.com", // Can be string or array
+    to: "admin@myapp.com",        // Can be string or array
   },
-  throttle: 300000, // Min 5 minutes between emails
+  throttle: 300000,  // Min 5 minutes between emails
 });
 ```
 
@@ -109,9 +109,10 @@ new VLoggo(options?: Partial<VLoggoConfig>)
 - `console`: Enable console output (default: true)
 - `debug`: Enable debug mode (default: false)
 - `json`: Enable JSON output (default: false)
-- `directory`: Log directories (default: ~/[client]/logs)
-- `filecount`: Retention days (default: { txt: 31, json: 31 })
+- `directory`: Log directories (default: `~/[client]/logs` for txt, `~/[client]/json` for json)
+- `filecount`: Retention days (default: `{ txt: 31, json: 31 }`)
 - `smtp`: SMTP configuration (optional)
+- `notify`: Enable notifications (default: false, automatically set to true if smtp is configured)
 - `throttle`: Email throttle in ms (default: 30000)
 
 ### Logging Methods
@@ -132,22 +133,27 @@ logger.fatal(code: string, message: string): void
 ### Configuration Access
 
 ```typescript
-// Read configuration
-logger.config.client; // string
-logger.config.debug; // boolean
-logger.config.console; // boolean
-logger.config.json; // boolean
-logger.config.directory; // VLoggoDirectory
-logger.config.filecount; // VLoggoFilecount
-logger.config.notify; // boolean
-logger.config.smtp; // VLoggoSMTPConfig | undefined
-logger.config.throttle; // number
+// Read configuration (readonly)
+logger.config.client;      // string
+logger.config.debug;       // boolean
+logger.config.console;     // boolean
+logger.config.json;        // boolean
+logger.config.directory;   // VLoggoDirectory
+logger.config.filecount;   // VLoggoFilecount
+logger.config.notify;      // boolean
+logger.config.smtp;        // VLoggoSMTPConfig | undefined
+logger.config.throttle;    // number
 
 // Clone configuration
-const newConfig = logger.config.clone({ client: "NewApp" });
+const newLogger = new VLoggo(
+  logger.config.clone({ client: "NewApp" })
+);
 
 // Update configuration
-logger.config.update({ debug: true, throttle: 60000 });
+logger.config.update({ 
+  debug: true, 
+  throttle: 60000 
+});
 ```
 
 ## Log Format
@@ -155,7 +161,7 @@ logger.config.update({ debug: true, throttle: 60000 });
 ### Text Format
 
 ```
-[MyApp] [03/11/2025 14:30:45] [INFO] [APP_START] [server.ts:15]: Application started
+[MyApp] [04/11/2025 14:30:45] [INFO] [APP_START] [server.ts:15]: Application started
 ```
 
 ### JSON Format (JSONL)
@@ -163,7 +169,7 @@ logger.config.update({ debug: true, throttle: 60000 });
 ```json
 {
   "client": "MyApp",
-  "timestamp": "2025-11-03T14:30:45.123Z",
+  "timestamp": "2025-11-04T14:30:45.123Z",
   "level": "INFO",
   "code": "APP_START",
   "caller": "server.ts:15",
@@ -184,6 +190,35 @@ logger.config.update({ debug: true, throttle: 60000 });
 - Throttled to prevent spam (configurable via `throttle`)
 - Includes timestamp, code, caller location, and message
 - HTML formatted emails
+- Requires SMTP configuration via options or environment variables
+
+## TypeScript Types
+
+The library exports the following types:
+
+```typescript
+import { 
+  VLoggo, 
+  VLoggoConfig, 
+  VLoggoSMTPConfig,
+  VLoggoDirectory,
+  VLoggoFilecount,
+  LogLevel, 
+  LogEntry 
+} from "vloggo";
+
+// LogLevel type
+type LogLevel = "INFO" | "WARN" | "ERROR" | "FATAL" | "DEBUG";
+
+// LogEntry interface
+interface LogEntry {
+  level: LogLevel;
+  timestamp: string;
+  code: string;
+  caller: string;
+  message: string;
+}
+```
 
 ## Examples
 
@@ -191,7 +226,7 @@ logger.config.update({ debug: true, throttle: 60000 });
 
 ```typescript
 import express from "express";
-import { VLoggo } from "@vinialx/vloggo";
+import { VLoggo } from "vloggo";
 
 const app = express();
 const logger = new VLoggo({ client: "API" });
@@ -238,21 +273,6 @@ cron.schedule("0 0 * * *", () => {
 });
 ```
 
-## TypeScript Support
-
-Full TypeScript definitions are included:
-
-```typescript
-import { VLoggo, VLoggoConfig, LogLevel, LogEntry } from "vloggo";
-
-const config: Partial<VLoggoConfig> = {
-  client: "TypeScriptApp",
-  debug: true,
-};
-
-const logger = new VLoggo(config);
-```
-
 ## Performance Considerations
 
 - File writes are synchronous for data integrity
@@ -267,7 +287,6 @@ MIT
 ## Support
 
 For issues and feature requests, visit: https://github.com/vinialx/vloggo/issues
-
 
 ## Author
 
