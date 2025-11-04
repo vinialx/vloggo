@@ -10,7 +10,7 @@ import {
 } from "../interfaces/interfaces";
 
 /**
- * Configuration manager for VVLoggo.
+ * Configuration manager for VLoggo.
  * Manages all settings including SMTP, file rotation and debugging.
  *
  * @class Config
