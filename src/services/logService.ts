@@ -1,4 +1,4 @@
-import { LogEntry, LogLevel } from "../interfaces/interfaces";
+import type { LogEntry, LogLevel } from "../interfaces/interfaces";
 
 import FileService from "../internal/fileService";
 import EmailService from "../internal/emailService";

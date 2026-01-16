@@ -1,4 +1,4 @@
-import { LogEntry } from "../interfaces/interfaces";
+import type { LogEntry } from "../interfaces/interfaces";
 
 /**
  * Service responsible for formatting log-related strings.

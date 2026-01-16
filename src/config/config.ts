@@ -2,7 +2,7 @@ import * as os from "os";
 import * as path from "path";
 import FormatService from "../internal/formatService";
 
-import {
+import type {
   VLoggoConfig,
   VLoggoSMTPConfig,
   VLoggoDirectory,
@@ -100,7 +100,7 @@ class Config {
 
     if (!to || !from || !host || !portStr || !username || !password) {
       console.warn(
-        `[VLoggo] > [${this.client}] [${this.format.date()}] [WARN] : notification service disabled > missing configuration`
+        `[VLoggo] > [${this.client}] [${this.format.date()}] [WARN] : notification service disabled > missing configuration`,
       );
       this._notify = false;
       return;
@@ -109,7 +109,7 @@ class Config {
     const port = parseInt(portStr);
     if (isNaN(port) || port <= 0 || port > 65535) {
       console.error(
-        `[VLoggo] > [${this.client}] [${this.format.date()}] [ERROR] : notification service disabled > invalid port - ${portStr}.`
+        `[VLoggo] > [${this.client}] [${this.format.date()}] [ERROR] : notification service disabled > invalid port - ${portStr}.`,
       );
       this._notify = false;
       return;
@@ -153,7 +153,7 @@ class Config {
    * ```
    */
   update(
-    options: Partial<VLoggoConfig> & { smtp?: Partial<VLoggoSMTPConfig> }
+    options: Partial<VLoggoConfig> & { smtp?: Partial<VLoggoSMTPConfig> },
   ): void {
     if (options.client) {
       this._client = options.client;
