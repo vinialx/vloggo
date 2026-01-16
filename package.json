@@ -1,6 +1,6 @@
 {
   "name": "vloggo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "description": "Logging library for Node.js and Bun with file rotation, SMTP notifications, and JSON output support.",
   "homepage": "https://github.com/vinialx/vloggo#readme",
