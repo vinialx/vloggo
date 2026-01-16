@@ -122,6 +122,8 @@ class FileService {
       return;
     }
 
+    this._currentDay = today;
+
     try {
       fs.mkdirSync(this.config.directory.txt!, { recursive: true });
       this._txtFilename = path.resolve(
