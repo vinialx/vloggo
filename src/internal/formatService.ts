@@ -106,7 +106,7 @@ class FormatService {
   separator(): string {
     const separator = "\n" + "_".repeat(50) + "\n\n";
     const timestamp = this.date();
-    return `${separator}[${this.client}] [${timestamp}] [INIT] : VLoggo initialized successfully \n`;
+    return `${separator}[${this.client}] [${timestamp}] [INIT] : vloggo initialized \n`;
   }
 
   /**
