@@ -1,16 +1,17 @@
 {
   "compilerOptions": {
     "lib": ["ESNext"],
-    "target": "esnext",
+    "target": "es2020",
     "strict": true,
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "moduleDetection": "force",
     "module": "esnext",
+    "rootDir": "./src",
     "outDir": "build",
     "declaration": true,
     "esModuleInterop": true,
-    "verbatimModuleSyntax": true,  
+    "verbatimModuleSyntax": true,
     "declarationMap": true,
     "resolveJsonModule": true
   },
