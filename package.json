@@ -1,6 +1,6 @@
 {
   "name": "vloggo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": false,
   "description": "Logging library for Node.js and Bun with file rotation, SMTP notifications, and JSON output support.",
   "homepage": "https://github.com/vinialx/vloggo#readme",
@@ -21,11 +21,11 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "dependencies": {
-    "nodemailer": "^7.0.10"
+    "nodemailer": "^7.0.12"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/nodemailer": "^7.0.2"
+    "@types/nodemailer": "^7.0.5"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
