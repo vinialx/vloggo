@@ -94,7 +94,7 @@ export class VLoggo {
   private log(level: LogLevel, code: string, message: string): void {
     if (!this.fileService.initialized) {
       console.error(
-        `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : VLoggo not initialized > skipping log`
+        `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : VLoggo not initialized > skipping log`,
       );
       return;
     }
@@ -212,7 +212,7 @@ export class VLoggo {
   /**
    * Logs a fatal error message and sends an email notification.
    * Used for severe error events that might cause the application to abort.
-   * Automatically triggers email notification if email service is configured and ready.
+   * Automatically triggers asynchronous email notification if email service is configured and ready.
    *
    * @param {string} code - Log code identifier
    * @param {string} text - Log message
@@ -224,24 +224,24 @@ export class VLoggo {
    * ```
    */
 
-  fatal(code: string, text: string): void {
+  async fatal(code: string, text: string): Promise<void> {
     this.log("FATAL", code, text);
 
     if (!this.emailService.ready) {
       if (this._config.debug) {
         console.info(
-          `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [INFO] : notification service not ready`
+          `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [INFO] : notification service not ready`,
         );
       }
       return;
     }
 
-    this.emailService
-      .sendErrorNotification(this._config.client, code, text)
-      .catch((error) =>
-        console.error(
-          `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
-        )
+    try {
+      await this.emailService.sendErrorNotification(this._config.client, code, text);
+    } catch (error) {
+      console.error(
+        `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`,
       );
+    }
   }
 }
