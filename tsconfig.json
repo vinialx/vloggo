@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
-    "target": "es2020",
+    "lib": ["ES2022"],
+    "target": "ES2022",
     "strict": true,
     "skipLibCheck": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "NodeNext",
     "moduleDetection": "force",
-    "module": "esnext",
+    "module": "NodeNext",
     "rootDir": "./src",
     "outDir": "build",
     "declaration": true,
