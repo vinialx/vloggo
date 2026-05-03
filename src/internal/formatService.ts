@@ -1,4 +1,4 @@
-import type { LogEntry } from "../interfaces/interfaces";
+import type { LogEntry } from "../interfaces/interfaces.js";
 
 /**
  * Service responsible for formatting log-related strings.

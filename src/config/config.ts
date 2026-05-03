@@ -1,13 +1,13 @@
 import * as os from "os";
 import * as path from "path";
-import FormatService from "../internal/formatService";
+import FormatService from "../internal/formatService.js";
 
 import type {
   VLoggoConfig,
   VLoggoSMTPConfig,
   VLoggoDirectory,
   VLoggoFilecount,
-} from "../interfaces/interfaces";
+} from "../interfaces/interfaces.js";
 
 /**
  * Configuration manager for VLoggo.

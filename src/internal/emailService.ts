@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 
-import Config from "../config/config";
-import FormatService from "./formatService";
+import Config from "../config/config.js";
+import FormatService from "./formatService.js";
 
 /**
  * Service responsible for sending email notifications via SMTP.

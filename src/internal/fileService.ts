@@ -2,8 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as fsp from "fs/promises";
 
-import Config from "../config/config";
-import FormatService from "./formatService";
+import Config from "../config/config.js";
+import FormatService from "./formatService.js";
 
 /**
  * Service responsible for managing log file operations.

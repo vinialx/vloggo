@@ -1,9 +1,9 @@
-import type { LogEntry, LogLevel } from "../interfaces/interfaces";
+import type { LogEntry, LogLevel } from "../interfaces/interfaces.js";
 
-import FileService from "../internal/fileService";
-import EmailService from "../internal/emailService";
-import FormatService from "../internal/formatService";
-import Config, { defaultConfig } from "../config/config";
+import FileService from "../internal/fileService.js";
+import EmailService from "../internal/emailService.js";
+import FormatService from "../internal/formatService.js";
+import Config, { defaultConfig } from "../config/config.js";
 
 /**
  * Main logging service for VLoggo.
