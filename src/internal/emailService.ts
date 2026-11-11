@@ -1,172 +1,176 @@
-import nodemailer from "nodemailer";
-
-import Config from "../config/config.js";
+import nodemailer, { type Transporter } from "nodemailer";
+import { performance } from "node:perf_hooks";
+import type Config from "../config/config.js";
+import type { LogEntry } from "../interfaces/interfaces.js";
 import FormatService from "./formatService.js";
+import { diagnostic } from "./diagnostics.js";
 
-/**
- * Service responsible for sending email notifications via SMTP.
- * Handles error notifications with throttling to prevent spam.
- *
- * @class EmailService
- */
-
-class EmailService {
-  private format: FormatService = new FormatService();
-  private transporter: nodemailer.Transporter | null = null;
-
-  private _ready: boolean = false;
-  private lastEmailSent: number = 0;
-
-  /**
-   * Creates an instance of EmailService and initializes the SMTP transport.
-   *
-   * @param {Config} config - Configuration object containing SMTP settings
-   */
-
-  constructor(private config: Config) {
-    this.initialize();
-  }
-
-  /**
-   * Initializes SMTP transport using nodemailer.
-   * Sets up connection pooling and authentication.
-   * Logs initialization status if debug mode is enabled.
-   *
-   * @private
-   * @returns {void}
-   */
-
-  private initialize(): void {
-    if (!this.config.smtp) {
-      if (this.config.console) {
-        console.info(
-          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service disabled > missing configuration`
-        );
-      }
-      return;
-    }
-
-    try {
-      this.transporter = nodemailer.createTransport({
-        host: this.config.smtp.host,
-        port: this.config.smtp.port,
-        secure: this.config.smtp.secure ?? this.config.smtp.port === 465,
-        pool: true,
-        auth: {
-          user: this.config.smtp.username,
-          pass: this.config.smtp.password,
-        },
-        debug: this.config.debug,
-        logger: this.config.debug,
-      });
-
-      this._ready = true;
-
-      if (this.config.debug) {
-        console.info(
-          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : notification service initialized successfully`
-        );
-      }
-    } catch (error) {
-      console.error(
-        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : error initializing notification service > ${(error as Error).message}`
-      );
-
-      this.transporter = null;
-    }
-  }
-
-  /**
-   * Sends an error notification email to configured recipients.
-   * Implements throttling based on config.throttle to prevent email spam.
-   *
-   * @async
-   * @param {string} client - Name of the client/application reporting the error
-   * @param {string} code - Error code identifier
-   * @param {string} error - Detailed error message
-   * @returns {Promise<void>}
-   *
-   * @example
-   * ```typescript
-   * await emailService.sendErrorNotification(
-   *   "MyApp",
-   *   "ERR_DATABASE",
-   *   "Failed to connect to database"
-   * );
-   * ```
-   */
-
-  async sendErrorNotification(
-    client: string,
-    code: string,
-    error: string
-  ): Promise<void> {
-    if (!this.transporter || !this.config.smtp) {
-      console.error(
-        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > email service not initialized`
-      );
-      return;
-    }
-
-    const now = Date.now();
-
-    if (now - this.lastEmailSent < this.config.throttle) {
-      if (this.config.debug) {
-        console.info(
-          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : email throttled > ${now - this.lastEmailSent} ms remaining`
-        );
-      }
-
-      return;
-    }
-
-    this.lastEmailSent = now;
-
-    const recipients = Array.isArray(this.config.smtp.to)
-      ? this.config.smtp.to.join(", ")
-      : this.config.smtp.to;
-
-    const caller = this.format.caller(3);
-
-    const emailContent = {
-      from: `"${client}" <${this.config.smtp.from}>`,
-      to: recipients,
-      subject: `[${client}] Error Alert - ${code}`,
-      html: `
-        <h2>Error Report</h2>
-        <p><strong>Client:</strong> ${client}</p>
-        <p><strong>Error Code:</strong> ${code}</p>
-        <p><strong>Caller:</strong> ${caller}</p>
-        <p><strong>Error Message:</strong> ${error}</p>
-        <p><strong>Timestamp:</strong> ${new Date().toLocaleString("pt-BR")}</p>
-        <hr>
-      `,
-    };
-
-    try {
-      await this.transporter.sendMail(emailContent);
-      if (this.config.debug) {
-        console.info(
-          `[VLoggo] > [${this.config.client}] [${this.format.date()}] [INFO] : error email sent successfully to ${recipients}`
-        );
-      }
-    } catch (error) {
-      console.error(
-        `[VLoggo] > [${this.config.client}] [${this.format.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`
-      );
-    }
-  }
-
-  /**
-   * Gets the ready status of the email service.
-   *
-   * @readonly
-   * @returns {boolean} True if the service is initialized and ready to send emails
-   */
-
-  get ready(): boolean {
-    return this._ready;
-  }
+function escapeHtml(value: string): string {
+  const escapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return value.replace(/[&<>"']/g, character => escapes[character]);
 }
 
-export default EmailService;
+interface TransportState {
+  transport: Transporter;
+  pending: number;
+  retired: boolean;
+}
+
+/** Owns SMTP configuration, notifications, retry throttling, and transport lifetime. */
+export default class EmailService {
+  private format: FormatService;
+  private current?: TransportState;
+  private transports = new Set<TransportState>();
+  private settings = "";
+  private pending = new Set<Promise<void>>();
+  private controllers = new Set<AbortController>();
+  private inFlight = false;
+  private lastSuccess = -Infinity;
+  private retryAfter = -Infinity;
+  private reportedIssue = "";
+  private closed = false;
+
+  constructor(private config: Config) {
+    this.format = new FormatService(config.client, config.format.timezone);
+    this.reconfigure();
+  }
+
+  reconfigure(): void {
+    if (this.closed) return;
+    this.format.setTimezone(this.config.format.timezone);
+    const smtp = this.config.smtp;
+    const issue = this.config.notificationIssue;
+    const settings = JSON.stringify({
+      enabled: this.config.notify,
+      smtp: this.config.notify ? smtp : undefined,
+      issue: this.config.notify ? issue : undefined,
+      console: this.config.outputs.console,
+    });
+    if (settings === this.settings) return;
+    this.settings = settings;
+
+    if (this.current) {
+      this.current.retired = true;
+      this.release(this.current);
+      this.current = undefined;
+    }
+
+    if (!this.config.notify) {
+      this.reportedIssue = "";
+      return;
+    }
+    if (!smtp || issue) {
+      if (issue && this.reportedIssue !== issue) {
+        this.reportedIssue = issue;
+        diagnostic(this.config, `notifications enabled but ${issue}`, undefined, "SMTP_CONFIG");
+      }
+      return;
+    }
+    this.reportedIssue = "";
+
+    try {
+      const transport = nodemailer.createTransport({
+        host: smtp.host, port: smtp.port, secure: smtp.secure,
+        requireTLS: smtp.requireTLS, pool: true,
+        auth: { user: smtp.username, pass: smtp.password },
+        connectionTimeout: smtp.connectionTimeout ?? 10000,
+        greetingTimeout: smtp.greetingTimeout ?? 10000,
+        socketTimeout: smtp.socketTimeout ?? 10000,
+        debug: Boolean(smtp.debug && this.config.outputs.console),
+        logger: Boolean(smtp.debug && this.config.outputs.console),
+      });
+      this.current = { transport, pending: 0, retired: false };
+      this.transports.add(this.current);
+    } catch (error) {
+      diagnostic(this.config, "failed to initialize notification service", error);
+    }
+  }
+
+  sendErrorNotification(entry: LogEntry): Promise<void> {
+    if (this.closed || !this.config.notify) return Promise.resolve();
+    this.reconfigure();
+    const state = this.current;
+    const smtp = this.config.smtp;
+    const now = performance.now();
+    if (!state || !smtp || this.inFlight || now < this.retryAfter || now - this.lastSuccess < this.config.throttle) {
+      return Promise.resolve();
+    }
+
+    this.inFlight = true;
+    state.pending++;
+    const controller = new AbortController();
+    this.controllers.add(controller);
+    const timer = setTimeout(() => controller.abort(new Error("Notification timed out")), this.config.notificationTimeout);
+    const date = new Date(entry.timestamp);
+    const fields = [
+      ["Event ID", entry.eventId],
+      ["Timestamp", this.format.emailDate(date)],
+      ["Application", entry.client],
+      ["Level", entry.level],
+      ["Code", entry.code],
+      ["Caller", entry.caller],
+      ["Message", entry.message],
+    ];
+    const details = {
+      ...(entry.context ? { context: entry.context } : {}),
+      ...(entry.data ? { data: entry.data } : {}),
+      ...(entry.error ? { error: entry.error } : {}),
+    };
+    const detailsText = Object.keys(details).length ? `\n\nDetails\n${JSON.stringify(details, null, 2)}` : "";
+    const detailsHtml = Object.keys(details).length
+      ? `<h3>Details</h3><pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre>`
+      : "";
+    const attempt = (async () => {
+      try {
+        const info = await state.transport.sendMail({
+          from: { name: entry.client, address: smtp.from },
+          to: typeof smtp.to === "string" ? smtp.to : [...smtp.to],
+          subject: `[${entry.level}] ${entry.client} - ${entry.code}`,
+          text: `${fields.map(([label, value]) => `${label}: ${value}`).join("\n")}${detailsText}`,
+          html: `<h2>${escapeHtml(entry.level)}: ${escapeHtml(entry.client)}</h2><p>${escapeHtml(entry.message)}</p><dl>${fields.filter(([label]) => label !== "Message").map(([label, value]) => `<dt><strong>${escapeHtml(label)}</strong></dt><dd>${escapeHtml(value)}</dd>`).join("")}</dl>${detailsHtml}`,
+          signal: controller.signal,
+        });
+        this.lastSuccess = performance.now();
+        this.retryAfter = -Infinity;
+        if (info.rejected?.length) {
+          diagnostic(this.config, `SMTP rejected ${info.rejected.length} recipient(s)`);
+        }
+      } catch (error) {
+        this.retryAfter = performance.now() + this.config.retryDelay;
+        diagnostic(this.config, "failed to send error notification", error);
+      } finally {
+        clearTimeout(timer);
+        this.controllers.delete(controller);
+        this.inFlight = false;
+        state.pending--;
+        this.release(state);
+      }
+    })();
+    this.pending.add(attempt);
+    void attempt.then(() => { this.pending.delete(attempt); });
+    return attempt;
+  }
+
+  private release(state: TransportState): void {
+    if (state.retired && !state.pending) {
+      state.transport.close();
+      this.transports.delete(state);
+    }
+  }
+
+  async flush(): Promise<void> { await Promise.all([...this.pending]); }
+
+  close(force = false): void {
+    this.closed = true;
+    if (force) for (const controller of this.controllers) controller.abort(new Error("Logger closed"));
+    for (const state of this.transports) {
+      state.retired = true;
+      if (force) state.transport.close({ force: true });
+      else this.release(state);
+    }
+    if (force) this.transports.clear();
+    this.current = undefined;
+  }
+
+  get ready(): boolean { return Boolean(!this.closed && this.config.notify && this.current); }
+}

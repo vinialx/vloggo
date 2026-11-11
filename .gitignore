@@ -1,10 +1,6 @@
 # dependencies (bun install)
 node_modules
 
-#tests
-test
-.test.ts
-
 # output
 out
 dist
@@ -27,4 +23,3 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 .eslintcache
 *.tsbuildinfo
-

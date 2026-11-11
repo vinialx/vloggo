@@ -1,163 +1,92 @@
-import type { LogEntry } from "../interfaces/interfaces.js";
+import { randomUUID } from "node:crypto";
+import type { LogData, LogEntry } from "../interfaces/interfaces.js";
 
-/**
- * Service responsible for formatting log-related strings.
- * Provides utilities for date formatting, filename generation, separators, and caller traceability.
- *
- * @class FormatService
- */
-
-class FormatService {
-  constructor(private client?: string) {
-    if (!client) {
-      client = "VLoggo";
-    }
-  }
-
-  /**
-   * Formats a date object into DD/MM/YYYY HH:mm:ss format.
-   * @param date - Date to format
-   * @returns Formatted date string
-   */
-
-  date(date: Date = new Date()): string {
-    const pad = (num: number) => num.toString().padStart(2, "0");
-    const d = pad(date.getDate());
-    const m = pad(date.getMonth() + 1);
-    const y = date.getFullYear();
-    const h = pad(date.getHours());
-    const min = pad(date.getMinutes());
-    const s = pad(date.getSeconds());
-    return `${d}/${m}/${y} ${h}:${min}:${s}`;
-  }
-
-  /**
-   * Formats a date into ISO 8601 format for JSON logs.
-   * @param date - Date to format
-   * @returns ISO formatted date string
-   */
-
-  isoDate(date: Date = new Date()): string {
-    return date.toISOString();
-  }
-
-  /**
-   * Formats a filename based on the current date (YYYY-MM-DD).
-   * @returns Filename in format log-YYYY-MM-DD.txt
-   */
-
-  filename(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `log-${year}-${month}-${day}.txt`;
-  }
-
-  /**
-   * Formats a JSON filename based on the current date.
-   * @returns Filename in format log-YYYY-MM-DD.jsonl
-   */
-  jsonFilename(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `log-${year}-${month}-${day}.jsonl`;
-  }
-
-  /**
-   * Formats a complete log entry into a single line.
-   * @param entry - Log entry to format
-   * @returns Formatted log line
-   */
-
-  line(entry: LogEntry): string {
-    const timestamp = this.date(new Date());
-    return `[${this.client}] [${timestamp}] [${entry.level}] [${entry.code}] [${entry.caller}]: ${entry.message}\n`;
-  }
-
-  /**
-   * Formats a log entry as JSON.
-   * @param entry - Log entry to format
-   * @param pretty - Whether to pretty-print the JSON
-   * @returns JSON string with newline
-   */
-
-  jsonLine(entry: LogEntry, pretty: boolean = true): string {
-    const jsonEntry = {
-      client: this.client,
-      timestamp: this.isoDate(new Date()),
-      level: entry.level,
-      code: entry.code,
-      caller: entry.caller,
-      message: entry.message,
-    };
-
-    return JSON.stringify(jsonEntry) + "\n";
-  }
-
-  /**
-   * Creates a separator line for log file initialization.
-   * @param message - Optional message to include
-   * @returns Formatted separator with message
-   */
-
-  separator(): string {
-    const separator = "\n" + "_".repeat(50) + "\n\n";
-    const timestamp = this.date();
-    return `${separator}[${this.client}] [${timestamp}] [INIT] : vloggo initialized \n`;
-  }
-
-  /**
-   * Creates a JSON separator for log file initialization.
-   * @returns JSON formatted initialization entry
-   */
-
-  jsonSeparator(): string {
-    const initEntry = {
-      client: this.client,
-      timestamp: this.isoDate(new Date()),
-      level: "INIT",
-      message: "VLoggo initialized successfully",
-    };
-    return JSON.stringify(initEntry) + "\n";
-  }
-
-  /**
-   * Gets caller location as "file.ts:line"
-   * @param skip - Number of stack frames to skip (default: 0)
-   * @returns Formatted string like "server.ts:123" or empty string if failed
-   */
-
-  caller(skip: number = 0): string {
-    const err = new Error();
-    const stack = err.stack;
-
-    if (!stack) {
-      return "(unknown:0)";
-    }
-
-    const lines = stack.split("\n");
-    const targetLine = lines[skip + 2];
-
-    if (!targetLine) {
-      return "(unknown:0)";
-    }
-
-    const match =
-      targetLine.match(/\((.+?):(\d+):\d+\)/) ||
-      targetLine.match(/at\s+(.+?):(\d+):\d+/);
-
-    if (!match) {
-      return "(unknown:0)";
-    }
-
-    const [, filepath, line] = match;
-    const filename = filepath.split(/[/\\]/).pop() || filepath;
-
-    return `${filename}:${line}`;
-  }
+/** Escape control characters so each text event stays on one physical line. */
+export function safeText(value: string): string {
+  return value.replace(/[\x00-\x1f\x7f-\x9f\u2028\u2029]/g, character => {
+    if (character === "\n") return "\\n";
+    if (character === "\r") return "\\r";
+    if (character === "\t") return "\\t";
+    return `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`;
+  });
 }
 
-export default FormatService;
+function timezoneParts(date: Date, timezone: string): Record<string, string> {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    fractionalSecondDigits: 3,
+    hourCycle: "h23",
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter(part => part.type !== "literal").map(part => [part.type, part.value]));
+}
+
+function displayValue(value: unknown): string {
+  if (typeof value === "string") return safeText(value).replace(/\s+/g, " ").trim();
+  if (value === null || typeof value !== "object") return safeText(String(value));
+  return safeText(JSON.stringify(value));
+}
+
+function headerText(value: string): string {
+  return safeText(value).replace(/[\[\]]/g, character => `\\${character}`);
+}
+
+/** Formats one structured event consistently across console, text, JSON, and email. */
+export default class FormatService {
+  constructor(private client = "VLoggo", private timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC") {}
+
+  setTimezone(timezone: string): void { this.timezone = timezone; }
+
+  id(): string { return randomUUID(); }
+
+  shortId(eventId: string): string { return `evt-${eventId.replaceAll("-", "").slice(0, 8)}`; }
+
+  date(date: Date = new Date()): string {
+    const part = timezoneParts(date, this.timezone);
+    return `${part.day}/${part.month}/${part.year} ${part.hour}:${part.minute}:${part.second}.${part.fractionalSecond}`;
+  }
+
+  emailDate(date: Date): string { return `${this.date(date)} ${this.timezone}`; }
+
+  isoDate(date: Date = new Date()): string { return date.toISOString(); }
+
+  day(date: Date = new Date()): string {
+    const part = timezoneParts(date, this.timezone);
+    return `${part.year}-${part.month}-${part.day}`;
+  }
+
+  filename(date: Date = new Date(), sequence = 0): string {
+    return `log-${this.day(date)}${sequence ? `.${String(sequence).padStart(3, "0")}` : ""}.txt`;
+  }
+
+  jsonFilename(date: Date = new Date(), sequence = 0): string {
+    return `log-${this.day(date)}${sequence ? `.${String(sequence).padStart(3, "0")}` : ""}.jsonl`;
+  }
+
+  line(entry: LogEntry): string {
+    const id = this.shortId(entry.eventId);
+    const level = entry.level.padEnd(5, " ");
+    const message = safeText(entry.message).replace(/\s+/g, " ").trim();
+    const fields: string[] = [];
+    for (const [key, value] of Object.entries(entry.context ?? {})) fields.push(`${key}=${displayValue(value)}`);
+    for (const [key, value] of Object.entries(entry.data ?? {})) fields.push(`${key}=${displayValue(value)}`);
+    if (entry.error) fields.push(`error=${displayValue({ name: entry.error.name, message: entry.error.message })}`);
+    const suffix = fields.length ? ` > ${fields.join(" > ")}` : "";
+    return `[${headerText(entry.client)}] [${this.date(new Date(entry.timestamp))}] [${id}] [${level}] [${headerText(entry.code)}] : ${message}${suffix}\n`;
+  }
+
+  jsonLine(entry: LogEntry): string { return `${JSON.stringify(entry)}\n`; }
+
+  caller(): string {
+    const stack = new Error().stack?.split("\n").slice(1) ?? [];
+    for (const line of stack) {
+      const match = line.match(/\((.+?):(\d+):\d+\)/) ?? line.match(/at\s+(.+?):(\d+):\d+/);
+      if (!match) continue;
+      const filepath = match[1];
+      if (/[/\\](?:internal\/formatService|internal\/redactionService|services\/logService)\.(?:js|ts)$/.test(filepath)) continue;
+      return `${filepath.split(/[/\\]/).pop()}:${match[2]}`;
+    }
+    return "(unknown:0)";
+  }
+}

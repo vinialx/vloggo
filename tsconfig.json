@@ -12,7 +12,9 @@
     "declaration": true,
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
-    "declarationMap": true,
+    "declarationMap": false,
+    "noEmitOnError": true,
+    "types": ["node"],
     "resolveJsonModule": true
   },
   "exclude": ["node_modules", "build"],

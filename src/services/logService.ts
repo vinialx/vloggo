@@ -1,247 +1,200 @@
-import type { LogEntry, LogLevel } from "../interfaces/interfaces.js";
-
+import type {
+  LifecycleOptions,
+  LogData,
+  LogEntry,
+  LogLevel,
+  LogLevelName,
+  LogMetadata,
+  VLoggoConfig,
+} from "../interfaces/interfaces.js";
 import FileService from "../internal/fileService.js";
 import EmailService from "../internal/emailService.js";
 import FormatService from "../internal/formatService.js";
-import Config, { defaultConfig } from "../config/config.js";
+import { sanitize, serializeError } from "../internal/redactionService.js";
+import Config from "../config/config.js";
 
-/**
- * Main logging service for VLoggo.
- * Provides methods for logging at different severity levels with automatic file writing,
- * console output, and email notifications for critical errors.
- *
- * @class VLoggo
- */
+const LEVELS: readonly LogLevelName[] = ["debug", "info", "warn", "error", "fatal"];
+const UPPER_LEVEL: Record<LogLevelName, LogLevel> = {
+  debug: "DEBUG", info: "INFO", warn: "WARN", error: "ERROR", fatal: "FATAL",
+};
 
+function mergeContext(parent: LogData, child: LogData): LogData {
+  return { ...parent, ...child };
+}
+
+/** Logger sharing application's outputs and lifecycle with its child loggers. */
+export class VLoggoChild {
+  constructor(
+    private emit: (level: LogLevelName, code: string, message: string, metadata: LogMetadata | undefined, context: LogData) => void | Promise<void>,
+    readonly config: Readonly<Config>,
+    private readonly context: LogData,
+  ) {}
+
+  /** Creates a nested child; child fields override inherited fields with same names. */
+  child(context: LogData): VLoggoChild {
+    const detached = sanitize(context, this.config.redact) as LogData;
+    return new VLoggoChild(this.emit, this.config, mergeContext(this.context, detached));
+  }
+
+  /** Writes a debug event when the configured minimum level allows it. */
+  debug(code: string, message: string, metadata?: LogMetadata): void { this.emit("debug", code, message, metadata, this.context); }
+  /** Writes an informational event. */
+  info(code: string, message: string, metadata?: LogMetadata): void { this.emit("info", code, message, metadata, this.context); }
+  /** Writes a warning event. */
+  warn(code: string, message: string, metadata?: LogMetadata): void { this.emit("warn", code, message, metadata, this.context); }
+  /** Writes an error event. */
+  error(code: string, message: string, metadata?: LogMetadata): void { this.emit("error", code, message, metadata, this.context); }
+  /** Writes a fatal event and waits for an enabled notification attempt. */
+  fatal(code: string, message: string, metadata?: LogMetadata): Promise<void> {
+    return Promise.resolve(this.emit("fatal", code, message, metadata, this.context));
+  }
+}
+
+/** Logging facade with independent console, text, JSONL, and SMTP outputs. */
 export class VLoggo {
   private _config: Config;
   private fileService: FileService;
   private emailService: EmailService;
   private formatService: FormatService;
+  private unsubscribe: () => void;
+  private closed = false;
+  private closing?: Promise<void>;
 
-  /**
-   * Creates a new VLoggo instance with the specified configuration.
-   * Initializes file service, format service, and email service.
-   * Automatically creates log directories and starts file rotation.
-   *
-   * @param {Partial<VLoggoConfig>} options - Configuration options (all optional, uses defaults for missing values)
-   *
-   * @example
-   * ```typescript
-   * // Minimal configuration
-   * const logger = new VLoggo({ client: 'MyApp' });
-   *
-   * // With multiple options
-   * const logger = new VLoggo({
-   *   client: 'MyApp',
-   *   debug: true,
-   *   console: false,
-   *   filecount: { txt: 7, json: 7 }
-   * });
-   *
-   * // With SMTP for fatal error notifications
-   * const logger = new VLoggo({
-   *   client: 'MyApp',
-   *   smtp: {
-   *     host: 'smtp.gmail.com',
-   *     port: 465,
-   *     secure: true,
-   *     username: 'user@gmail.com',
-   *     password: 'password',
-   *     from: 'app@myapp.com',
-   *     to: 'admin@myapp.com'
-   *   }
-   * });
-   * ```
-   */
-
-  constructor(options?: Partial<Config>) {
-    this._config = new Config({
-      ...defaultConfig,
-      ...options,
-    });
-
+  constructor(options?: VLoggoConfig | Config) {
+    this._config = new Config(options);
+    this.formatService = new FormatService(this._config.client, this._config.format.timezone);
     this.fileService = new FileService(this._config);
-    this.formatService = new FormatService(this._config.client);
     this.emailService = new EmailService(this._config);
-
     this.fileService.initialize();
+    this.unsubscribe = this._config.subscribe(() => {
+      this.formatService.setTimezone(this._config.format.timezone);
+      this.fileService.initialize();
+      this.emailService.reconfigure();
+    });
+    if (this._config.startupMessage) this.log("info", "APP_START", "Logger initialized", undefined, {});
   }
 
-  /**
-   * Gets the current configuration.
-   *
-   * @readonly
-   * @returns {Config} Current configuration object
-   */
+  /** Current validated configuration. Nested values are immutable; use update() to change them. */
+  get config(): Readonly<Config> { return this._config; }
 
-  get config(): Readonly<Config> {
-    return this._config;
+  /** Creates a logger that adds immutable context to every event. */
+  child(context: LogData): VLoggoChild {
+    const detached = sanitize(context, this.config.redact) as LogData;
+    return new VLoggoChild((level, code, message, metadata, inherited) =>
+      this.logWithContext(level, code, message, metadata, inherited), this.config, detached);
   }
 
-  /**
-   * Internal logging method that handles log entry creation and writing.
-   * Verifies file rotation, formats the log entry with caller information,
-   * writes to file and optionally outputs to console.
-   *
-   * @private
-   * @param {LogLevel} level - Log severity level
-   * @param {string} code - Log code identifier for categorization
-   * @param {string} message - Log message content
-   * @returns {void}
-   */
+  private log(
+    levelName: LogLevelName,
+    code: string,
+    message: string,
+    metadata?: LogMetadata,
+    inheritedContext: LogData = {},
+  ): LogEntry | undefined {
+    if (this.closed || LEVELS.indexOf(levelName) < LEVELS.indexOf(this.config.level)) return;
+    if (typeof code !== "string" || !code.trim()) throw new TypeError("code must be a nonempty string");
+    if (typeof message !== "string") throw new TypeError("message must be a string");
 
-  private log(level: LogLevel, code: string, message: string): void {
-    if (!this.fileService.initialized) {
-      console.error(
-        `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : VLoggo not initialized > skipping log`,
-      );
-      return;
+    const date = new Date();
+    const rawData = metadata instanceof Error ? undefined : metadata;
+    const rawError = metadata instanceof Error
+      ? metadata
+      : metadata?.error instanceof Error ? metadata.error : undefined;
+    let data = rawData ? sanitize(rawData, this.config.redact) as LogData : undefined;
+    if (rawError && data) {
+      data = { ...data };
+      delete data.error;
+      if (!Object.keys(data).length) data = undefined;
     }
-
-    this.fileService.verify();
-
+    const context = Object.keys(inheritedContext).length
+      ? sanitize(inheritedContext, this.config.redact) as LogData
+      : undefined;
+    const serializedError = serializeError(rawError, this.config.redact);
     const entry: LogEntry = {
-      level,
+      eventId: this.formatService.id(),
+      timestamp: date.toISOString(),
+      client: this.config.client,
+      level: UPPER_LEVEL[levelName],
       code,
-      caller: this.formatService.caller(2),
+      caller: this.formatService.caller(),
       message,
-      timestamp: this.formatService.date(),
+      ...(context ? { context } : {}),
+      ...(data ? { data } : {}),
+      ...(serializedError ? { error: serializedError as LogEntry["error"] } : {}),
     };
 
-    const line = this.formatService.line(entry);
-
-    if (this.config.json) {
-      const jsonLine = this.formatService.jsonLine(entry);
-      this.fileService.write(line, jsonLine);
-    } else {
-      this.fileService.write(line);
+    if (this.config.outputs.console) {
+      const output = levelName === "warn" ? console.warn : levelName === "error" || levelName === "fatal" ? console.error : console.info;
+      output(this.formatService.line(entry).trimEnd());
     }
-
-    if (this._config.console) {
-      switch (level) {
-        case "INFO":
-        case "DEBUG":
-          console.info(line.trim());
-          break;
-        case "WARN":
-          console.warn(line.trim());
-          break;
-        case "ERROR":
-        case "FATAL":
-          console.error(line.trim());
-          break;
-        default:
-          console.log(line.trim());
-      }
-    }
+    this.fileService.write(
+      this.config.outputs.text ? this.formatService.line(entry) : undefined,
+      this.config.outputs.json ? this.formatService.jsonLine(entry) : undefined,
+      date,
+    );
+    return entry;
   }
 
-  /**
-   * Logs an informational message.
-   * Used for general application flow information.
-   *
-   * @param {string} code - Log code identifier
-   * @param {string} text - Log message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * logger.info('APP_START', 'Application started successfully');
-   * ```
-   */
-
-  info(code: string, text: string): void {
-    this.log("INFO", code, text);
+  private logWithContext(
+    level: LogLevelName,
+    code: string,
+    message: string,
+    metadata: LogMetadata | undefined,
+    context: LogData,
+  ): void | Promise<void> {
+    const entry = this.log(level, code, message, metadata, context);
+    if (level === "fatal" && entry) return this.emailService.sendErrorNotification(entry);
   }
 
-  /**
-   * Logs a warning message.
-   * Used for potentially harmful situations that don't prevent operation.
-   *
-   * @param {string} code - Log code identifier
-   * @param {string} text - Log message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * logger.warn('DB_SLOW', 'Database query took longer than expected');
-   * ```
-   */
+  /** Writes a debug event when the configured minimum level allows it. */
+  debug(code: string, message: string, metadata?: LogMetadata): void { this.log("debug", code, message, metadata); }
+  /** Writes an informational event to enabled outputs. */
+  info(code: string, message: string, metadata?: LogMetadata): void { this.log("info", code, message, metadata); }
+  /** Writes a warning event to enabled outputs. */
+  warn(code: string, message: string, metadata?: LogMetadata): void { this.log("warn", code, message, metadata); }
+  /** Writes an error event to enabled outputs. */
+  error(code: string, message: string, metadata?: LogMetadata): void { this.log("error", code, message, metadata); }
 
-  warn(code: string, text: string): void {
-    this.log("WARN", code, text);
+  /** Writes fatal event and waits for enabled SMTP attempt. Delivery errors are reported as diagnostics. */
+  async fatal(code: string, message: string, metadata?: LogMetadata): Promise<void> {
+    const entry = this.log("fatal", code, message, metadata);
+    if (entry) await this.emailService.sendErrorNotification(entry);
   }
 
-  /**
-   * Logs a debug message.
-   * Used for detailed diagnostic information useful during development.
-   *
-   * @param {string} code - Log code identifier
-   * @param {string} text - Log message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * logger.debug('API_REQ', 'Request received: GET /api/users');
-   * ```
-   */
-
-  debug(code: string, text: string): void {
-    this.log("DEBUG", code, text);
-  }
-
-  /**
-   * Logs an error message.
-   * Used for error events that might still allow the application to continue.
-   *
-   * @param {string} code - Log code identifier
-   * @param {string} text - Log message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * logger.error('API_FAIL', 'Failed to fetch user data from external API');
-   * ```
-   */
-
-  error(code: string, text: string): void {
-    this.log("ERROR", code, text);
-  }
-
-  /**
-   * Logs a fatal error message and sends an email notification.
-   * Used for severe error events that might cause the application to abort.
-   * Automatically triggers asynchronous email notification if email service is configured and ready.
-   *
-   * @param {string} code - Log code identifier
-   * @param {string} text - Log message
-   * @returns {void}
-   *
-   * @example
-   * ```typescript
-   * logger.fatal('DB_CONN_FAIL', 'Unable to connect to database after 5 retries');
-   * ```
-   */
-
-  async fatal(code: string, text: string): Promise<void> {
-    this.log("FATAL", code, text);
-
-    if (!this.emailService.ready) {
-      if (this._config.debug) {
-        console.info(
-          `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [INFO] : notification service not ready`,
-        );
-      }
-      return;
-    }
-
+  /** Waits for accepted email and cleanup work. Timeout rejects without closing the logger. */
+  async flush(options: LifecycleOptions = {}): Promise<void> {
+    const timeout = options.timeout ?? 10000;
+    if (!Number.isSafeInteger(timeout) || timeout < 1) throw new TypeError("timeout must be a positive integer");
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await this.emailService.sendErrorNotification(this._config.client, code, text);
-    } catch (error) {
-      console.error(
-        `[VLoggo] > [${this._config.client}] [${this.formatService.date()}] [ERROR] : failed to send error message > ${(error as Error).message}`,
-      );
-    }
+      await Promise.race([
+        (async () => {
+          await this.emailService.flush();
+          await this.fileService.flush();
+        })(),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Logger flush timed out")), timeout); }),
+      ]);
+    } finally { clearTimeout(timer); }
+  }
+
+  /** Stops accepting events, drains work, and releases SMTP connections. Repeated calls share one result. */
+  close(options: LifecycleOptions = {}): Promise<void> {
+    if (this.closing) return this.closing;
+    const timeout = options.timeout ?? 10000;
+    if (!Number.isSafeInteger(timeout) || timeout < 1) return Promise.reject(new TypeError("timeout must be a positive integer"));
+    this.closed = true;
+    this.unsubscribe();
+    this.closing = (async () => {
+      try {
+        await this.flush({ timeout });
+        this.emailService.close();
+        this.fileService.deactivate();
+      } catch (error) {
+        this.emailService.close(true);
+        this.fileService.deactivate();
+        throw error;
+      }
+    })();
+    return this.closing;
   }
 }
