@@ -11,7 +11,7 @@ mkdirSync(base, { recursive: true });
 const temp = mkdtempSync(path.join(base, "vloggo-package-test-"));
 
 try {
-  const tarballs = JSON.parse(execFileSync("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", temp], {
+  const tarballs = JSON.parse(execFileSync("npm", ["pack", "--ignore-scripts", "--dry-run=false", "--json", "--pack-destination", temp], {
     cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"],
   }));
   const tarball = path.join(temp, tarballs[0].filename);
