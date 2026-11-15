@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+
+- Redact every line of a multi-line error message from serialized stacks when `message` is redacted.
+- Keep writing when the active log file is removed externally instead of dropping the next event.
+
 ## 2.0.0
 
 - Upgrade Nodemailer to 10.5.0 and require Node.js 20 or newer.
