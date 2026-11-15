@@ -16,6 +16,15 @@ function matches(path: string[], key: string, patterns: readonly string[]): bool
   });
 }
 
+/** Replaces the stack header, including every line of a multi-line message. */
+function redactStackHeader(stack: string, name: string, message: string): string {
+  const header = message ? `${name}: ${message}` : name;
+  if (message && stack.startsWith(header)) return `${name}: ${REDACTED}${stack.slice(header.length)}`;
+  // Unknown header shape: keep only stack frames so no message text can survive.
+  const frames = stack.split(/\r?\n/).filter(line => /^\s+at\s/.test(line));
+  return [`${name}: ${REDACTED}`, ...frames].join("\n");
+}
+
 /** Redacts configured object fields and converts values into bounded JSON-safe data. */
 export function sanitize(value: unknown, patterns: readonly string[] = [], rootPath: string[] = []): unknown {
   const ancestors = new WeakSet<object>();
@@ -41,7 +50,7 @@ export function sanitize(value: unknown, patterns: readonly string[] = [], rootP
       const redactMessage = matches(path, "message", patterns);
       for (const [key, item] of standard) {
         if (key === "stack" && redactMessage && typeof item === "string") {
-          result[key] = item.replace(/^[^\r\n]*/, `${input.name}: ${REDACTED}`);
+          result[key] = redactStackHeader(item, input.name, input.message);
         } else {
           result[key] = matches(path, key, patterns) ? REDACTED : visit(item, [...path, key], depth + 1);
         }
