@@ -14,6 +14,12 @@ const activeOwners = new Map<string, Set<FileService>>();
 
 function missing(error: unknown): boolean { return (error as NodeJS.ErrnoException)?.code === "ENOENT"; }
 
+/** Returns file size, or undefined when the file was removed concurrently. */
+function sizeOf(filename: string): number | undefined {
+  try { return fs.statSync(filename).size; }
+  catch (error) { if (missing(error)) return undefined; throw error; }
+}
+
 function dateOrdinal(day: string): number { return Date.parse(`${day}T00:00:00Z`); }
 
 function appendNoFollow(filename: string, content: string): void {
@@ -58,18 +64,19 @@ export default class FileService {
       const pattern = new RegExp(`^log-${day.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\.(\\d+))?\\.${extension}$`);
       const candidates = fs.readdirSync(directory, { withFileTypes: true })
         .filter(entry => entry.isFile() && pattern.test(entry.name))
-        .map(entry => {
+        .flatMap(entry => {
           const match = pattern.exec(entry.name)!;
           const sequence = Number(match[1] ?? 0);
           const filename = path.join(directory, entry.name);
-          return { filename, sequence, size: fs.statSync(filename).size };
+          const size = sizeOf(filename);
+          return size === undefined ? [] : [{ filename, sequence, size }];
         })
         .sort((left, right) => right.sequence - left.sequence);
       const latest = candidates[0];
       let selected: { filename: string; sequence: number; size: number } | undefined;
       if (current.ready && current.day === day && path.dirname(current.filename) === directory) {
-        const size = fs.statSync(current.filename).size;
-        if (current.sequence === latest?.sequence && (size === 0 || size + nextBytes <= this.config.rotation.maxFileSize)) {
+        const size = sizeOf(current.filename);
+        if (size !== undefined && current.sequence === latest?.sequence && (size === 0 || size + nextBytes <= this.config.rotation.maxFileSize)) {
           selected = { filename: current.filename, sequence: current.sequence, size };
         }
       }
